@@ -55,8 +55,7 @@ class TestCodeChunkModel:
                 chunk_text='def test(): pass',
                 line_start=1,
                 line_end=5,
-                language='python',
-                chunk_index=0
+                language='python'
             )
             db.session.add(chunk)
             db.session.commit()
@@ -64,6 +63,8 @@ class TestCodeChunkModel:
             assert chunk.chunk_id is not None
             assert chunk.file_path == 'test.py'
             assert chunk.language == 'python'
+            assert chunk.line_start == 1
+            assert chunk.line_end == 5
     
     def test_code_chunk_relationship(self, app, sample_analysis):
         """Test CodeChunk relationship with Analysis."""
@@ -96,11 +97,9 @@ class TestCVEFindingModel:
                 analysis_id=sample_analysis,
                 cve_id='CVE-2021-44228',
                 file_path='test.py',
-                line_start=1,
-                line_end=5,
+                chunk_id=1,
                 severity='CRITICAL',
-                confidence_score=0.95,
-                match_reason='Log4j detected'
+                confidence_score=0.95
             )
             db.session.add(finding)
             db.session.commit()
@@ -135,16 +134,21 @@ class TestCVEDatasetModel:
     def test_create_cve_dataset(self, app):
         """Test creating a CVE dataset entry."""
         with app.app_context():
+            from datetime import datetime
+            import uuid
+            # Use unique CVE ID to avoid conflicts
+            unique_cve_id = f'CVE-TEST-{uuid.uuid4().hex[:8].upper()}'
             cve = CVEDataset(
-                cve_id='CVE-2021-44228',
-                description='Log4Shell vulnerability',
-                severity='CRITICAL',
-                cwe_id='CWE-502',
-                published_date='2021-12-10'
+                cve_id=unique_cve_id,
+                cve_json=f'{{"id": "{unique_cve_id}"}}',
+                description='Test vulnerability for dataset',
+                severity='HIGH',
+                cvss_score=8.5,
+                last_updated=datetime.utcnow()
             )
             db.session.add(cve)
             db.session.commit()
             
-            assert cve.id is not None
-            assert cve.cve_id == 'CVE-2021-44228'
-            assert cve.severity == 'CRITICAL'
+            assert cve.cve_id == unique_cve_id
+            assert cve.severity == 'HIGH'
+            assert cve.cvss_score == 8.5
