@@ -5,7 +5,6 @@ flask-cors==4.0.0
 sqlalchemy==2.0.23
 alembic==1.13.1
 faiss-cpu==1.9.0
-cohere==4.37
 python-dotenv==1.0.0
 pydantic==2.5.3
 pandas==2.1.4
@@ -16,7 +15,7 @@ pytest-cov==4.1.0
 black==23.12.1
 flake8==6.1.0
 gitpython==3.1.40
-openai==1.6.1
+openai>=2.0.0
 langsmith
 langchain
 langchain-openai
