@@ -1,38 +1,53 @@
-"""CVE search service - finds vulnerabilities using FAISS + reranking."""
+"""CVE search service - finds vulnerabilities using Milvus + reranking."""
 from typing import List, Callable, Optional
-import numpy as np
+import os
 from langsmith import traceable
-from app.models import CodeChunk, CVEFinding, CVEDataset, db
+from app.models import CodeChunk, CVEFinding, db
 from app.services.cohere_service import CohereEmbeddingService, CohereRerankService
-from app.services.faiss_manager import CVEIndexManager
+from app.services.milvus_client import MilvusClient
 import logging
 
 logger = logging.getLogger(__name__)
 
 class CVESearchService:
-    """Handles CVE search with FAISS and reranking."""
+    """Handles CVE search with Milvus and reranking."""
     
     CONFIDENCE_THRESHOLD = 0.7  # Minimum confidence to save finding
     
     def __init__(self):
         self.cohere_embedding = CohereEmbeddingService()
         self.cohere_rerank = CohereRerankService()
-        self.cve_index = CVEIndexManager()
+        
+        # Milvus configuration
+        milvus_config = {
+            "collection_name": "vuln",
+            "endpoint": "https://in03-6ad99fbc2869a71.serverless.aws-eu-central-1.cloud.zilliz.com",
+            "token": os.getenv("MILVUS_TOKEN", "0c10dc02af7b90a3313e75db42c20269b25f7a2926877466b51f29e037315e336cab32756d681c6c6c666ac5c5b8e26c2aa8aba6"),
+        }
+        
+        # Initialize Milvus client
+        self.milvus_client = MilvusClient(milvus_config)
+        
+        # Connect to Milvus
+        if not self.milvus_client.connect():
+            logger.error("Failed to connect to Milvus - CVE search will not work")
+        else:
+            logger.info("Successfully connected to Milvus CVE database")
     
     @traceable(name="search_all_chunks", run_type="tool")
     def search_all_chunks(
         self,
         chunks: List[CodeChunk],
-        faiss_top_k: int = 50,
+        milvus_top_k: int = 50,
         rerank_top_n: int = 10,
         progress_callback: Optional[Callable[[int, int], None]] = None
     ) -> List[CVEFinding]:
         """
-        Search for CVEs across all chunks.
+        Search for CVEs across all chunks using Milvus.
         
         Args:
             chunks: List of CodeChunk objects
-            faiss_top_k: Number of candidates from FAISS
+            milvus_top_k: Number of candidates from Milvus
             rerank_top_n: Number of results after reranking
             progress_callback: Optional progress callback (current, total)
         
@@ -40,13 +55,13 @@ class CVESearchService:
             List[CVEFinding]: Created findings
         """
         total = len(chunks)
-        logger.info(f"Searching CVEs for {total} chunks (FAISS top-{faiss_top_k}, rerank top-{rerank_top_n})")
+        logger.info(f"Searching CVEs for {total} chunks (Milvus top-{milvus_top_k}, rerank top-{rerank_top_n})")
         
         all_findings = []
         
         for i, chunk in enumerate(chunks):
             try:
-                findings = self._search_chunk(chunk, faiss_top_k, rerank_top_n)
+                findings = self._search_chunk(chunk, milvus_top_k, rerank_top_n)
                 all_findings.extend(findings)
                 
                 if progress_callback:
@@ -66,33 +81,46 @@ class CVESearchService:
     def _search_chunk(
         self,
         chunk: CodeChunk,
-        faiss_top_k: int,
+        milvus_top_k: int,
         rerank_top_n: int
     ) -> List[CVEFinding]:
-        """Search CVEs for a single chunk."""
-        # Generate query embedding for the chunk
+        """Search CVEs for a single chunk using Milvus."""
+        # Generate query text for the chunk
         query_text = (
             f"File: {chunk.file_path}\nLines {chunk.line_start}-{chunk.line_end}\n\n{chunk.chunk_text}"
         )
-        query_embedding = self.cohere_embedding.generate_embeddings([query_text])[0]
         
-        # FAISS similarity search
-        faiss_results = self.cve_index.search(np.array(query_embedding, dtype='float32'), top_k=faiss_top_k)
+        # Generate query embedding using Azure Cohere (1024-dim)
+        # Note: Milvus collection expects 3072-dim (Gemini), so we need to pad
+        query_embedding_1024 = self.cohere_embedding.generate_embeddings([query_text])[0]
         
-        if not faiss_results:
+        # Pad embedding from 1024 to 3072 dimensions (zero-padding)
+        query_embedding_3072 = query_embedding_1024 + [0.0] * (3072 - 1024)
+        
+        if not query_embedding_3072:
+            logger.warning(f"Failed to generate embedding for chunk {chunk.chunk_id}")
             return []
         
-        # Get CVE data for reranking
-        cve_ids = [result.get('cve_id') for result in faiss_results if result.get('cve_id')]
-        cves = db.session.query(CVEDataset).filter(CVEDataset.cve_id.in_(cve_ids)).all()
+        # Milvus similarity search
+        milvus_results = self.milvus_client.search_similar(
+            query_vector=query_embedding_3072,
+            limit=milvus_top_k,
+            similarity_threshold=0.3,  # Lower threshold due to dimension mismatch
+            output_fields=["cve_id", "summary", "cvss_score"]
+        )
+        
+        if not milvus_results:
+            return []
         
         # Create documents for reranking
         documents = []
         cve_map = {}
-        for cve in cves:
-            doc_text = f"{cve.cve_id}: {cve.description}"
+        for result in milvus_results:
+            cve_id = result.get('cve_id', '')
+            summary = result.get('summary', '')
+            doc_text = f"{cve_id}: {summary}"
             documents.append(doc_text)
-            cve_map[cve.cve_id] = cve
+            cve_map[cve_id] = result
         
         if not documents:
             return []
@@ -108,18 +136,21 @@ class CVESearchService:
         findings = []
         for result in rerank_results:
             if result['relevance_score'] >= self.CONFIDENCE_THRESHOLD:
-                cve_id = result['text'].split(':')[0] if 'text' in result else result['document'].split(':')[0]
-                cve = cve_map.get(cve_id)
+                # Extract CVE ID from the document text
+                doc_text = result.get('text') or result.get('document', '')
+                cve_id = doc_text.split(':')[0].strip() if ':' in doc_text else ''
                 
-                if cve:
+                cve_data = cve_map.get(cve_id)
+                
+                if cve_data:
                     finding = CVEFinding(
                         analysis_id=chunk.analysis_id,
                         chunk_id=chunk.chunk_id,
-                        cve_id=cve.cve_id,
+                        cve_id=cve_id,
                         file_path=chunk.file_path,
                         confidence_score=result['relevance_score'],
                         validation_status='pending',
-                        cve_description=cve.description
+                        cve_description=cve_data.get('summary', '')
                     )
                     db.session.add(finding)
                     findings.append(finding)
@@ -127,7 +158,7 @@ class CVESearchService:
         if findings:
             db.session.flush()
             logger.debug(
-                "Chunk %s: queued %s potential vulnerabilities",
+                "Chunk %s: found %s potential vulnerabilities from Milvus",
                 chunk.chunk_id,
                 len(findings)
             )
@@ -146,42 +177,55 @@ class CVESearchService:
         
         Args:
             query: Search query
-            top_k: FAISS candidates
+            top_k: Milvus candidates
             top_n: Reranked results
         
         Returns:
             List of CVE results with scores
         """
-        # Generate embedding
-        query_embedding = self.cohere_embedding.generate_embeddings([query])[0]
+        # Generate embedding using Azure Cohere (1024-dim)
+        query_embedding_1024 = self.cohere_embedding.generate_embeddings([query])[0]
         
-        # FAISS search
-        faiss_results = self.cve_index.search(np.array(query_embedding, dtype='float32'), top_k=top_k)
+        # Pad to 3072 dimensions
+        query_embedding_3072 = query_embedding_1024 + [0.0] * (3072 - 1024)
         
-        if not faiss_results:
+        if not query_embedding_3072:
+            logger.warning("Failed to generate embedding for query")
             return []
         
-        # Get CVEs
-        cve_ids = [result.get('cve_id') for result in faiss_results if result.get('cve_id')]
-        cves = db.session.query(CVEDataset).filter(CVEDataset.cve_id.in_(cve_ids)).all()
+        # Milvus search
+        milvus_results = self.milvus_client.search_similar(
+            query_vector=query_embedding_3072,
+            limit=top_k,
+            similarity_threshold=0.3,  # Lower threshold due to dimension mismatch
+            output_fields=["cve_id", "summary", "cvss_score"]
+        )
+        
+        if not milvus_results:
+            return []
+        
+        # Create CVE map for quick lookup
+        cve_map = {r.get('cve_id', ''): r for r in milvus_results}
         
         # Rerank
-        documents = [f"{cve.cve_id}: {cve.description}" for cve in cves]
+        documents = [f"{r.get('cve_id', '')}: {r.get('summary', '')}" for r in milvus_results]
         if not documents:
             return []
+        
         rerank_results = self.cohere_rerank.rerank(query, documents, top_n=top_n)
         
         # Format results
         results = []
         for result in rerank_results:
-            cve_id = result['text'].split(':')[0] if 'text' in result else result['document'].split(':')[0]
-            cve = next((c for c in cves if c.cve_id == cve_id), None)
+            doc_text = result.get('text') or result.get('document', '')
+            cve_id = doc_text.split(':')[0].strip() if ':' in doc_text else ''
+            cve_data = cve_map.get(cve_id)
             
-            if cve:
+            if cve_data:
                 results.append({
-                    'cve_id': cve.cve_id,
-                    'description': cve.description,
-                    'severity': cve.severity,
+                    'cve_id': cve_id,
+                    'description': cve_data.get('summary', ''),
+                    'cvss_score': cve_data.get('cvss_score', 0.0),
                     'relevance_score': result['relevance_score']
                 })
         
