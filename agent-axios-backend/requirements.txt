@@ -22,3 +22,5 @@ langchain-openai
 langgraph
 reportlab==4.0.7
 python-socketio[client]==5.10.0
+pymilvus>=2.3.0
+google-generativeai>=0.3.0

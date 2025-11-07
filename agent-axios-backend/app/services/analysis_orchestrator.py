@@ -83,7 +83,7 @@ class AnalysisOrchestrator:
             self.emit_progress(55, 'searching', 'Searching for vulnerabilities...')
             findings = self.cve_search_service.search_all_chunks(
                 chunks,
-                faiss_top_k=self.config['faiss_top_k'],
+                milvus_top_k=self.config['faiss_top_k'],
                 rerank_top_n=self.config['rerank_top_n'],
                 progress_callback=self._search_progress_callback
             )
