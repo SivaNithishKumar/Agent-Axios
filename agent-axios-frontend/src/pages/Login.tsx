@@ -3,17 +3,56 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Shield, Lock, Mail } from "lucide-react";
+import { Shield, Lock, Mail, Loader2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { login, register } = useAuth();
+  const [isLogin, setIsLogin] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Login fields
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  
+  // Register fields
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [company, setCompany] = useState("");
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // For now, just navigate to dashboard
-    navigate("/dashboard");
+    setIsLoading(true);
+    
+    try {
+      await login({ email, password });
+      navigate("/dashboard");
+    } catch (error) {
+      console.error('Login failed:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    
+    try {
+      await register({ 
+        email, 
+        password, 
+        firstName, 
+        lastName,
+        company: company || undefined 
+      });
+      navigate("/dashboard");
+    } catch (error) {
+      console.error('Registration failed:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -34,63 +73,190 @@ const Login = () => {
           </div>
 
           {/* Login Form */}
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium">
-                Email
-              </Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          {isLogin ? (
+            <form onSubmit={handleLogin} className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-sm font-medium">
+                  Email
+                </Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-10 h-11 bg-secondary/50 border-border focus:border-primary transition-colors"
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-sm font-medium">
+                  Password
+                </Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-10 h-11 bg-secondary/50 border-border focus:border-primary transition-colors"
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full h-11 bg-primary hover:bg-primary-hover text-primary-foreground font-medium shadow-[var(--shadow-soft)] transition-all hover:shadow-[var(--shadow-medium)] hover:scale-[1.02]"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  'Sign In'
+                )}
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleRegister} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName" className="text-sm font-medium">
+                    First Name
+                  </Label>
+                  <Input
+                    id="firstName"
+                    type="text"
+                    placeholder="John"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    className="h-11 bg-secondary/50 border-border focus:border-primary transition-colors"
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName" className="text-sm font-medium">
+                    Last Name
+                  </Label>
+                  <Input
+                    id="lastName"
+                    type="text"
+                    placeholder="Doe"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    className="h-11 bg-secondary/50 border-border focus:border-primary transition-colors"
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="company" className="text-sm font-medium">
+                  Company (Optional)
+                </Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 h-11 bg-secondary/50 border-border focus:border-primary transition-colors"
-                  required
+                  id="company"
+                  type="text"
+                  placeholder="Acme Inc."
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  className="h-11 bg-secondary/50 border-border focus:border-primary transition-colors"
+                  disabled={isLoading}
                 />
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-medium">
-                Password
-              </Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 h-11 bg-secondary/50 border-border focus:border-primary transition-colors"
-                  required
-                />
+              <div className="space-y-2">
+                <Label htmlFor="reg-email" className="text-sm font-medium">
+                  Email
+                </Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="reg-email"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-10 h-11 bg-secondary/50 border-border focus:border-primary transition-colors"
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
               </div>
-            </div>
 
-            <Button
-              type="submit"
-              className="w-full h-11 bg-primary hover:bg-primary-hover text-primary-foreground font-medium shadow-[var(--shadow-soft)] transition-all hover:shadow-[var(--shadow-medium)] hover:scale-[1.02]"
-            >
-              Sign In
-            </Button>
-          </form>
+              <div className="space-y-2">
+                <Label htmlFor="reg-password" className="text-sm font-medium">
+                  Password
+                </Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="reg-password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-10 h-11 bg-secondary/50 border-border focus:border-primary transition-colors"
+                    required
+                    minLength={8}
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full h-11 bg-primary hover:bg-primary-hover text-primary-foreground font-medium shadow-[var(--shadow-soft)] transition-all hover:shadow-[var(--shadow-medium)] hover:scale-[1.02]"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Creating account...
+                  </>
+                ) : (
+                  'Create Account'
+                )}
+              </Button>
+            </form>
+          )}
 
           {/* Footer */}
-          <div className="mt-6 text-center">
-            <button className="text-sm text-muted-foreground hover:text-primary transition-colors">
-              Forgot password?
-            </button>
-          </div>
+          {isLogin && (
+            <div className="mt-6 text-center">
+              <button 
+                type="button"
+                className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                disabled={isLoading}
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
 
           <div className="mt-6 pt-6 border-t border-border text-center">
             <p className="text-sm text-muted-foreground">
-              Don't have an account?{" "}
-              <button className="text-primary hover:text-primary-hover font-medium transition-colors">
-                Sign up
+              {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
+              <button 
+                type="button"
+                onClick={() => setIsLogin(!isLogin)}
+                className="text-primary hover:text-primary-hover font-medium transition-colors"
+                disabled={isLoading}
+              >
+                {isLogin ? 'Sign up' : 'Sign in'}
               </button>
             </p>
           </div>

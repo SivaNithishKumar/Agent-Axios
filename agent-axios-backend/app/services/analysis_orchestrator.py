@@ -44,9 +44,17 @@ class AnalysisOrchestrator:
         repo_path = None
         
         try:
+            # IMPORTANT: Background thread needs to refresh the session
+            # Remove the analysis from the session and re-query it
+            db.session.expire_all()
+            self.analysis = db.session.query(Analysis).filter_by(analysis_id=self.analysis_id).first()
+            if not self.analysis:
+                raise ValueError(f"Analysis {self.analysis_id} not found in background task")
+            
             self.analysis.status = 'running'
             self.analysis.start_time = datetime.utcnow()
             db.session.commit()
+            logger.info(f"✅ Set analysis {self.analysis_id} status to 'running' and committed")
             
             logger.info(f"Starting analysis {self.analysis_id}: {self.analysis.repo_url}")
             
@@ -68,7 +76,26 @@ class AnalysisOrchestrator:
             self.analysis.total_files = self.chunking_service.files_processed
             self.analysis.total_chunks = len(chunks)
             db.session.commit()
+            logger.info(f"✅ Committed total_files={self.analysis.total_files}, total_chunks={len(chunks)}")
             self.emit_progress(35, 'chunking', f'Chunked {len(chunks)} code segments')
+            
+            # Early exit if no code files found
+            if len(chunks) == 0:
+                logger.warning(f"No code chunks generated for analysis {self.analysis_id}. Repository may be empty or have no supported code files.")
+                self.analysis.status = 'completed'
+                self.analysis.end_time = datetime.utcnow()
+                self.analysis.total_findings = 0
+                db.session.commit()
+                logger.info(f"✅ COMMITTED STATUS='completed' (no chunks) for analysis {self.analysis_id}")
+                
+                self.emit_progress(100, 'completed', 'Analysis complete (no code files found)')
+                self.socketio.emit('analysis_complete', {
+                    'analysis_id': self.analysis_id,
+                    'duration_seconds': int((self.analysis.end_time - self.analysis.start_time).total_seconds()),
+                    'total_findings': 0,
+                    'message': 'No supported code files found in repository'
+                }, room=self.room, namespace='/analysis')
+                return
             
             # Step 3: Generate embeddings (35% → 55%)
             self.emit_progress(35, 'embedding', 'Generating code embeddings...')
@@ -115,6 +142,12 @@ class AnalysisOrchestrator:
             self.analysis.status = 'completed'
             self.analysis.end_time = datetime.utcnow()
             db.session.commit()
+            logger.info(f"✅ COMMITTED STATUS='completed' for analysis {self.analysis_id}")
+            
+            # Verify the commit worked by re-querying
+            db.session.expire_all()
+            check_analysis = db.session.query(Analysis).filter_by(analysis_id=self.analysis_id).first()
+            logger.info(f"🔍 Verification query: status={check_analysis.status}, total_files={check_analysis.total_files}, total_chunks={check_analysis.total_chunks}")
             
             duration = (self.analysis.end_time - self.analysis.start_time).total_seconds()
             logger.info(f"Analysis {self.analysis_id} completed in {duration:.1f}s")
@@ -129,10 +162,15 @@ class AnalysisOrchestrator:
         except Exception as e:
             logger.error(f"Analysis {self.analysis_id} failed: {str(e)}", exc_info=True)
             db.session.rollback()
-            self.analysis.status = 'failed'
-            self.analysis.error_message = str(e)
-            self.analysis.end_time = datetime.utcnow()
-            db.session.commit()
+            # Re-query the analysis in case of session issues
+            db.session.expire_all()
+            self.analysis = db.session.query(Analysis).filter_by(analysis_id=self.analysis_id).first()
+            if self.analysis:
+                self.analysis.status = 'failed'
+                self.analysis.error_message = str(e)
+                self.analysis.end_time = datetime.utcnow()
+                db.session.commit()
+                logger.info(f"✅ COMMITTED STATUS='failed' for analysis {self.analysis_id}")
             
             self.socketio.emit('error', {
                 'analysis_id': self.analysis_id,

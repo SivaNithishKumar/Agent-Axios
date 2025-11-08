@@ -6,12 +6,32 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "./ChatMessage";
 import { AnalysisProgress } from "./AnalysisProgress";
 import { toast } from "sonner";
+import { Socket } from "socket.io-client";
+import { 
+  createAnalysis, 
+  connectToAnalysis, 
+  disconnectSocket, 
+  extractGitHubUrl,
+  getAnalysisResults,
+  type Analysis,
+  type AnalysisType,
+  type ProgressUpdate,
+  type AnalysisComplete,
+} from "@/services/api";
 
 type Message = {
   id: number;
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  analysisId?: number;
+};
+
+type AnalysisState = {
+  id: number;
+  progress: number;
+  stage: string;
+  status: string;
 };
 
 export function ChatInterface() {
@@ -25,6 +45,8 @@ export function ChatInterface() {
   ]);
   const [input, setInput] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisState, setAnalysisState] = useState<AnalysisState | null>(null);
+  const [currentSocket, setCurrentSocket] = useState<Socket | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -38,17 +60,27 @@ export function ChatInterface() {
     }
   }, [messages, isAnalyzing]);
 
-  const handleSend = () => {
+  // Cleanup socket on unmount
+  useEffect(() => {
+    return () => {
+      if (currentSocket) {
+        disconnectSocket(currentSocket);
+      }
+    };
+  }, [currentSocket]);
+
+  const handleSend = async () => {
     if (!input.trim() || isAnalyzing) return;
 
-    const newMessage: Message = {
-      id: messages.length + 1,
+    const userMessage: Message = {
+      id: Date.now(),
       role: "user",
       content: input,
       timestamp: new Date(),
     };
 
-    setMessages([...messages, newMessage]);
+    setMessages(prev => [...prev, userMessage]);
+    const userInput = input;
     setInput("");
     
     // Reset textarea height
@@ -56,37 +88,199 @@ export function ChatInterface() {
       textareaRef.current.style.height = 'auto';
     }
 
-    // Simulate analysis for demo
-    if (input.toLowerCase().includes("github.com") || input.toLowerCase().includes("repo") || input.toLowerCase().includes("analyze")) {
-      setIsAnalyzing(true);
-      toast.success("Analysis started!", {
-        description: "Scanning repository for vulnerabilities...",
-      });
-      
-      setTimeout(() => {
-        const response: Message = {
-          id: messages.length + 2,
-          role: "assistant",
-          content: "I've completed the analysis! Found 3 medium-severity vulnerabilities and 1 low-severity issue. The main concerns are outdated dependencies in the Express.js middleware layer. Would you like me to generate a detailed report?",
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, response]);
-        setIsAnalyzing(false);
-        toast.success("Analysis complete!", {
-          description: "Found 4 vulnerabilities",
-        });
-      }, 3000);
+    // Check if input contains a GitHub URL
+    const githubUrl = extractGitHubUrl(userInput);
+    
+    if (githubUrl) {
+      // Start real analysis
+      await startAnalysis(githubUrl, userInput);
     } else {
       // Handle general questions
       setTimeout(() => {
         const response: Message = {
-          id: messages.length + 2,
+          id: Date.now(),
           role: "assistant",
-          content: "I can help you with CVE analysis and security scanning. Try pasting a GitHub repository URL or asking about specific vulnerabilities!",
+          content: "I can help you analyze GitHub repositories for CVE vulnerabilities! Please paste a GitHub repository URL to get started. For example:\n\n`https://github.com/user/repository`\n\nI support three analysis types:\n- **SHORT** (2-3 min): Quick scan\n- **MEDIUM** (5-10 min): Standard audit with AI validation ⭐\n- **HARD** (15-40 min): Deep comprehensive scan",
           timestamp: new Date(),
         };
-        setMessages((prev) => [...prev, response]);
+        setMessages(prev => [...prev, response]);
       }, 500);
+    }
+  };
+
+  const startAnalysis = async (repoUrl: string, userInput: string) => {
+    setIsAnalyzing(true);
+
+    // Determine analysis type from user input
+    let analysisType: AnalysisType = 'SHORT'; // Default
+    const inputLower = userInput.toLowerCase();
+    if (inputLower.includes('quick') || inputLower.includes('short') || inputLower.includes('fast')) {
+      analysisType = 'SHORT';
+    } else if (inputLower.includes('deep') || inputLower.includes('hard') || inputLower.includes('comprehensive')) {
+      analysisType = 'HARD';
+    }
+
+    try {
+      // Create analysis
+      const analysis = await createAnalysis(repoUrl, analysisType);
+      
+      const initialResponse: Message = {
+        id: Date.now(),
+        role: "assistant",
+        content: `🚀 Analysis started for **${repoUrl}**\n\nAnalysis Type: **${analysisType}**\nAnalysis ID: ${analysis.analysis_id}\n\nConnecting to analysis agent...`,
+        timestamp: new Date(),
+        analysisId: analysis.analysis_id,
+      };
+      setMessages(prev => [...prev, initialResponse]);
+
+      setAnalysisState({
+        id: analysis.analysis_id,
+        progress: 0,
+        stage: 'pending',
+        status: 'pending',
+      });
+
+      toast.success("Analysis started!", {
+        description: `Scanning ${repoUrl}...`,
+      });
+
+      // Connect to WebSocket for real-time updates
+      const socket = connectToAnalysis(analysis.analysis_id, {
+        onConnect: () => {
+          console.log('🔌 WebSocket Connected - Analysis ID:', analysis.analysis_id);
+        },
+        onAnalysisStarted: (data) => {
+          const msg: Message = {
+            id: Date.now(),
+            role: "assistant",
+            content: `✅ ${data.message}\n\nStarting automated security scan...`,
+            timestamp: new Date(),
+          };
+          setMessages(prev => [...prev, msg]);
+        },
+        onProgress: (data: ProgressUpdate) => {
+          console.log('🔄 Progress Update Received:', data);
+          setAnalysisState({
+            id: analysis.analysis_id,
+            progress: data.progress,
+            stage: data.stage,
+            status: 'running',
+          });
+          console.log('✅ State updated:', { progress: data.progress, stage: data.stage });
+        },
+        onIntermediateResult: (data) => {
+          const msg: Message = {
+            id: Date.now(),
+            role: "assistant",
+            content: `🔍 Found vulnerability: **${data.cve_id}**\n- File: \`${data.file_path}\`\n- Severity: **${data.severity}**\n- Confidence: ${(data.confidence_score * 100).toFixed(1)}%`,
+            timestamp: new Date(),
+          };
+          setMessages(prev => [...prev, msg]);
+        },
+        onComplete: async (data: AnalysisComplete) => {
+          setIsAnalyzing(false);
+          setAnalysisState(null);
+          
+          try {
+            // Add small delay to ensure database is updated
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Retry logic for fetching results
+            let results;
+            let retries = 3;
+            while (retries > 0) {
+              try {
+                results = await getAnalysisResults(analysis.analysis_id);
+                break;
+              } catch (error: any) {
+                if (error.message.includes('not completed yet') && retries > 1) {
+                  console.log(`Retrying... (${retries - 1} attempts left)`);
+                  await new Promise(resolve => setTimeout(resolve, 1000));
+                  retries--;
+                } else {
+                  throw error;
+                }
+              }
+            }
+            
+            if (results) {
+              const completionMsg: Message = {
+                id: Date.now(),
+                role: "assistant",
+                content: `🎉 **Analysis Complete!**\n\n**Summary:**\n- Total Files: ${results.summary.total_files}\n- Code Chunks: ${results.summary.total_chunks}\n- Vulnerabilities Found: ${results.summary.total_findings}\n- Confirmed: ${results.summary.confirmed_vulnerabilities}\n- False Positives: ${results.summary.false_positives}\n\n**Severity Breakdown:**\n${Object.entries(results.summary.severity_breakdown).map(([severity, count]) => `- ${severity}: ${count}`).join('\n')}\n\n**Duration:** ${Math.round(data.duration_seconds)}s\n\nWould you like me to show detailed findings?`,
+                timestamp: new Date(),
+                analysisId: analysis.analysis_id,
+              };
+              setMessages(prev => [...prev, completionMsg]);
+
+              toast.success("Analysis complete!", {
+                description: `Found ${results.summary.total_findings} vulnerabilities`,
+              });
+            }
+          } catch (error) {
+            console.error('Error fetching results:', error);
+            
+            // Fallback message if we can't fetch results
+            const fallbackMsg: Message = {
+              id: Date.now(),
+              role: "assistant",
+              content: `🎉 **Analysis Complete!**\n\n**Summary:**\n- Duration: ${Math.round(data.duration_seconds)}s\n- Total Findings: ${data.total_findings}\n\nAnalysis ID: ${analysis.analysis_id}\n\nYou can view the full report in the Reports section.`,
+              timestamp: new Date(),
+              analysisId: analysis.analysis_id,
+            };
+            setMessages(prev => [...prev, fallbackMsg]);
+            
+            toast.success("Analysis complete!", {
+              description: `Completed in ${Math.round(data.duration_seconds)}s`,
+            });
+          }
+
+          // Disconnect socket
+          if (currentSocket) {
+            disconnectSocket(currentSocket);
+            setCurrentSocket(null);
+          }
+        },
+        onError: (data) => {
+          setIsAnalyzing(false);
+          setAnalysisState(null);
+          
+          const errorMsg: Message = {
+            id: Date.now(),
+            role: "assistant",
+            content: `❌ **Analysis Error**\n\n${data.message}\n\n${data.details ? `Details: ${data.details}` : ''}${data.stage ? `\nStage: ${data.stage}` : ''}`,
+            timestamp: new Date(),
+          };
+          setMessages(prev => [...prev, errorMsg]);
+
+          toast.error("Analysis failed", {
+            description: data.message,
+          });
+
+          if (currentSocket) {
+            disconnectSocket(currentSocket);
+            setCurrentSocket(null);
+          }
+        },
+      });
+
+      setCurrentSocket(socket);
+
+    } catch (error: any) {
+      setIsAnalyzing(false);
+      setAnalysisState(null);
+      
+      const errorMsg: Message = {
+        id: Date.now(),
+        role: "assistant",
+        content: `❌ Failed to start analysis: ${error.message}`,
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMsg]);
+
+      toast.error("Failed to start analysis", {
+        description: error.message,
+      });
     }
   };
 
@@ -171,7 +365,16 @@ export function ChatInterface() {
             <ChatMessage key={message.id} message={message} />
           ))}
 
-          {isAnalyzing && <AnalysisProgress />}
+          {isAnalyzing && analysisState && (
+            <>
+              {console.log('🎨 Rendering AnalysisProgress:', analysisState)}
+              <AnalysisProgress 
+                progress={analysisState.progress}
+                stage={analysisState.stage}
+                status={analysisState.status}
+              />
+            </>
+          )}
         </div>
       </ScrollArea>
 
