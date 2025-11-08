@@ -27,11 +27,7 @@ export function DashboardHeader() {
     isLoading: notifLoading,
     markAsRead,
     loadNotifications 
-  } = useNotifications({ pollInterval: 30000 }); // Poll every 30 seconds
-
-  useEffect(() => {
-    loadNotifications();
-  }, []);
+  } = useNotifications({ autoLoad: true }); // Load once on mount (login time only)
 
   const handleLogout = async () => {
     await logout();
