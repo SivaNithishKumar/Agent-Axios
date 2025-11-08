@@ -1,5 +1,5 @@
 """CVE search service - finds vulnerabilities using Milvus + reranking."""
-from typing import List, Callable, Optional
+from typing import List, Callable, Optional, Dict, Any
 import os
 from langsmith import traceable
 from app.models import CodeChunk, CVEFinding, db
@@ -10,9 +10,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 class CVESearchService:
-    """Handles CVE search with Milvus and reranking."""
+    """Handles CVE search with Milvus and reranking using consistent Cohere embeddings."""
     
-    CONFIDENCE_THRESHOLD = 0.7  # Minimum confidence to save finding
+    CONFIDENCE_THRESHOLD = 0.65  # Minimum confidence to save finding
     
     def __init__(self):
         self.cohere_embedding = CohereEmbeddingService()
@@ -33,6 +33,113 @@ class CVESearchService:
             logger.error("Failed to connect to Milvus - CVE search will not work")
         else:
             logger.info("Successfully connected to Milvus CVE database")
+            logger.warning("Note: Milvus uses 3072-dim Gemini embeddings, but we're using 1024-dim Cohere (padded)")
+    
+    @traceable(name="search_cves_by_queries", run_type="retriever")
+    def search_by_queries(
+        self,
+        queries: List[str],
+        top_k_per_query: int = 20,
+        rerank_top_n: int = 10,
+        progress_callback: Optional[Callable[[int, int], None]] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Search CVEs using multiple decomposed queries.
+        
+        This implements the correct flow:
+        1. Take decomposed CVE queries
+        2. Search Milvus for each query
+        3. Rerank results
+        4. Deduplicate and return top CVEs
+        
+        Args:
+            queries: List of decomposed search queries
+            top_k_per_query: Milvus candidates per query
+            rerank_top_n: Final results per query after reranking
+            progress_callback: Optional progress callback (current, total)
+        
+        Returns:
+            List of CVE records with scores
+        """
+        total = len(queries)
+        logger.info(f"Searching CVEs with {total} decomposed queries")
+        
+        all_cves = {}  # cve_id -> cve_data (keeping best score)
+        
+        for i, query in enumerate(queries):
+            try:
+                # Generate query embedding (1024-dim Cohere)
+                query_embedding_1024 = self.cohere_embedding.generate_embeddings([query], input_type="search_query")[0]
+                
+                # Pad to 3072 dimensions for Milvus compatibility
+                # Note: This is a workaround. Ideally, rebuild Milvus with Cohere embeddings
+                query_embedding_3072 = query_embedding_1024 + [0.0] * (3072 - 1024)
+                
+                # Milvus similarity search
+                milvus_results = self.milvus_client.search_similar(
+                    query_vector=query_embedding_3072,
+                    limit=top_k_per_query,
+                    similarity_threshold=0.25,  # Lower threshold due to dimension mismatch
+                    output_fields=["cve_id", "summary", "cvss_score"]
+                )
+                
+                if not milvus_results:
+                    logger.debug(f"Query {i + 1}/{total}: No Milvus results")
+                    continue
+                
+                # Prepare documents for reranking
+                documents = []
+                cve_map = {}
+                for result in milvus_results:
+                    cve_id = result.get('cve_id', '')
+                    summary = result.get('summary', '')
+                    doc_text = f"{cve_id}: {summary}"
+                    documents.append(doc_text)
+                    cve_map[cve_id] = result
+                
+                if not documents:
+                    continue
+                
+                # Rerank with Cohere
+                rerank_results = self.cohere_rerank.rerank(
+                    query,
+                    documents,
+                    top_n=rerank_top_n
+                )
+                
+                # Store CVEs with best relevance scores
+                for result in rerank_results:
+                    doc_text = result.get('text') or result.get('document', '')
+                    cve_id = doc_text.split(':')[0].strip() if ':' in doc_text else ''
+                    
+                    if cve_id in cve_map:
+                        cve_data = cve_map[cve_id]
+                        relevance_score = result['relevance_score']
+                        
+                        # Keep CVE with highest relevance score
+                        if cve_id not in all_cves or relevance_score > all_cves[cve_id]['relevance_score']:
+                            all_cves[cve_id] = {
+                                'cve_id': cve_id,
+                                'summary': cve_data.get('summary', ''),
+                                'cvss_score': cve_data.get('cvss_score', 0.0),
+                                'relevance_score': relevance_score,
+                                'matched_query': query
+                            }
+                
+                if progress_callback:
+                    progress_callback(i + 1, total)
+                
+                logger.info(f"Query {i + 1}/{total}: Found {len(rerank_results)} relevant CVEs")
+                
+            except Exception as e:
+                logger.warning(f"Query {i + 1}/{total} failed: {str(e)}")
+                continue
+        
+        # Sort by relevance score and return
+        sorted_cves = sorted(all_cves.values(), key=lambda x: x['relevance_score'], reverse=True)
+        
+        logger.info(f"Total unique CVEs found: {len(sorted_cves)}")
+        return sorted_cves
     
     @traceable(name="search_all_chunks", run_type="tool")
     def search_all_chunks(

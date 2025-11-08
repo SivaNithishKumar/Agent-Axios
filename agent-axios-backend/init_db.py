@@ -33,7 +33,8 @@ def init_database():
     Base.metadata.create_all(bind=engine)
     
     # Verify tables
-    inspector = db.inspect(engine)
+    from sqlalchemy import inspect
+    inspector = inspect(engine)
     tables = inspector.get_table_names()
     
     print(f"\n✅ Database initialized successfully!")

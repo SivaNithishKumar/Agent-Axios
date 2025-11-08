@@ -54,6 +54,10 @@ class Config:
             'faiss_top_k': 30,
             'rerank_top_n': 5,
             'validation_enabled': False,
+            'cve_top_k': 10,  # Top CVEs from initial search
+            'cves_to_analyze': 5,  # Number of CVEs to decompose
+            'queries_per_cve': 2,  # Decomposed queries per CVE
+            'code_matches_per_query': 3,  # Code matches per query
             'estimated_time': '2-3 minutes',
             'description': 'Quick scan with reduced depth'
         },
@@ -63,6 +67,10 @@ class Config:
             'faiss_top_k': 50,
             'rerank_top_n': 10,
             'validation_enabled': True,
+            'cve_top_k': 20,  # Top CVEs from initial search
+            'cves_to_analyze': 10,  # Number of CVEs to decompose
+            'queries_per_cve': 3,  # Decomposed queries per CVE
+            'code_matches_per_query': 5,  # Code matches per query
             'estimated_time': '5-10 minutes',
             'description': 'Balanced scan with GPT-4 validation'
         },
@@ -72,6 +80,10 @@ class Config:
             'faiss_top_k': 100,
             'rerank_top_n': 20,
             'validation_enabled': True,
+            'cve_top_k': 30,  # Top CVEs from initial search
+            'cves_to_analyze': 20,  # Number of CVEs to decompose
+            'queries_per_cve': 5,  # Decomposed queries per CVE
+            'code_matches_per_query': 10,  # Code matches per query
             'estimated_time': '15-40 minutes',
             'description': 'Deep scan with comprehensive analysis'
         }

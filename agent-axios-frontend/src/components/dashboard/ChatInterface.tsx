@@ -297,63 +297,63 @@ export function ChatInterface() {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-      <ScrollArea ref={scrollAreaRef} className="flex-1">
-        <div className="max-w-4xl mx-auto p-4 lg:p-6 space-y-6">
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-gradient-to-b from-background to-secondary/10">
+      <ScrollArea ref={scrollAreaRef} className="flex-1 custom-scrollbar">
+        <div className="max-w-5xl mx-auto p-4 lg:p-8 space-y-6">
           {messages.length === 1 && (
-            <div className="text-center py-8 lg:py-12 animate-fade-in">
-              <div className="w-16 h-16 bg-gradient-to-br from-primary/10 to-accent/10 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
-                <Sparkles className="w-8 h-8 text-primary" />
+            <div className="text-center py-12 lg:py-16 animate-fade-in-up">
+              <div className="w-20 h-20 bg-gradient-to-br from-primary/20 via-primary/10 to-accent/20 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl ring-4 ring-primary/10 animate-pulse-glow">
+                <Sparkles className="w-10 h-10 text-primary animate-pulse" />
               </div>
-              <h2 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">
+              <h2 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-foreground via-foreground to-foreground/80 bg-clip-text mb-3">
                 Start Your Security Analysis
               </h2>
-              <p className="text-muted-foreground max-w-md mx-auto text-sm lg:text-base">
+              <p className="text-muted-foreground max-w-2xl mx-auto text-base lg:text-lg leading-relaxed">
                 Paste a GitHub repository URL or ask me about CVE vulnerabilities in your codebase
               </p>
 
-              <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mx-auto">
+              <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
                 <button 
                   onClick={() => handleQuickAction("Analyze github.com/example/repo")}
-                  className="p-4 bg-card border border-border rounded-xl hover:border-primary transition-all hover:shadow-sm text-left group"
+                  className="group p-5 bg-gradient-to-br from-card to-card/80 border-2 border-border/50 rounded-2xl hover:border-primary/50 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 text-left"
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center group-hover:bg-primary/20 transition-colors flex-shrink-0">
-                      <GitBranch className="w-5 h-5 text-primary" />
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl flex items-center justify-center group-hover:from-primary/20 group-hover:to-primary/10 transition-all duration-300 flex-shrink-0 group-hover:scale-110">
+                      <GitBranch className="w-6 h-6 text-primary" />
                     </div>
-                    <div className="min-w-0">
-                      <div className="font-medium text-foreground mb-1">Analyze Repository</div>
-                      <div className="text-sm text-muted-foreground">Scan a GitHub repo for vulnerabilities</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold text-foreground mb-1.5 text-base">Analyze Repository</div>
+                      <div className="text-sm text-muted-foreground leading-snug">Scan a GitHub repo for vulnerabilities</div>
                     </div>
                   </div>
                 </button>
 
                 <button 
                   onClick={() => handleQuickAction("What are the most critical CVEs this month?")}
-                  className="p-4 bg-card border border-border rounded-xl hover:border-primary transition-all hover:shadow-sm text-left group"
+                  className="group p-5 bg-gradient-to-br from-card to-card/80 border-2 border-border/50 rounded-2xl hover:border-accent/50 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 text-left"
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 bg-accent/10 rounded-lg flex items-center justify-center group-hover:bg-accent/20 transition-colors flex-shrink-0">
-                      <Sparkles className="w-5 h-5 text-accent" />
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-accent/10 to-accent/5 rounded-xl flex items-center justify-center group-hover:from-accent/20 group-hover:to-accent/10 transition-all duration-300 flex-shrink-0 group-hover:scale-110">
+                      <Sparkles className="w-6 h-6 text-accent" />
                     </div>
-                    <div className="min-w-0">
-                      <div className="font-medium text-foreground mb-1">Ask About CVEs</div>
-                      <div className="text-sm text-muted-foreground">Get info on specific vulnerabilities</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold text-foreground mb-1.5 text-base">Ask About CVEs</div>
+                      <div className="text-sm text-muted-foreground leading-snug">Get info on specific vulnerabilities</div>
                     </div>
                   </div>
                 </button>
 
                 <button 
                   onClick={() => handleQuickAction("Generate a security report")}
-                  className="p-4 bg-card border border-border rounded-xl hover:border-primary transition-all hover:shadow-sm text-left group"
+                  className="group p-5 bg-gradient-to-br from-card to-card/80 border-2 border-border/50 rounded-2xl hover:border-success/50 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 text-left"
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 bg-success/10 rounded-lg flex items-center justify-center group-hover:bg-success/20 transition-colors flex-shrink-0">
-                      <FileText className="w-5 h-5 text-success" />
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-success/10 to-success/5 rounded-xl flex items-center justify-center group-hover:from-success/20 group-hover:to-success/10 transition-all duration-300 flex-shrink-0 group-hover:scale-110">
+                      <FileText className="w-6 h-6 text-success" />
                     </div>
-                    <div className="min-w-0">
-                      <div className="font-medium text-foreground mb-1">Generate Report</div>
-                      <div className="text-sm text-muted-foreground">Create detailed security report</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold text-foreground mb-1.5 text-base">Generate Report</div>
+                      <div className="text-sm text-muted-foreground leading-snug">Create detailed security report</div>
                     </div>
                   </div>
                 </button>
@@ -378,37 +378,42 @@ export function ChatInterface() {
         </div>
       </ScrollArea>
 
-      <div className="border-t border-border bg-card p-4 lg:p-6 flex-shrink-0">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex gap-2 lg:gap-3">
-            <Textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                // Auto-resize textarea
-                e.target.style.height = 'auto';
-                e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
-              }}
-              onKeyDown={handleKeyDown}
-              placeholder="Paste a GitHub URL or ask a question..."
-              className="min-h-[52px] max-h-[120px] resize-none bg-secondary/50 border-border focus:border-primary transition-colors"
-              disabled={isAnalyzing}
-            />
+      <div className="border-t-2 border-border/50 bg-gradient-to-b from-card to-card/80 p-4 lg:p-6 flex-shrink-0 shadow-lg backdrop-blur-sm">
+        <div className="max-w-5xl mx-auto">
+          <div className="flex gap-3">
+            <div className="flex-1 relative group">
+              <Textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  // Auto-resize textarea
+                  e.target.style.height = 'auto';
+                  e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+                }}
+                onKeyDown={handleKeyDown}
+                placeholder="Paste a GitHub URL or ask a question..."
+                className="min-h-[56px] max-h-[120px] resize-none bg-secondary/50 border-2 border-border hover:border-primary/50 focus:border-primary transition-all duration-200 rounded-2xl shadow-sm"
+                disabled={isAnalyzing}
+              />
+            </div>
             <Button
               onClick={handleSend}
               disabled={!input.trim() || isAnalyzing}
-              className="bg-primary hover:bg-primary-hover text-primary-foreground h-[52px] px-4 lg:px-6 shadow-sm transition-all disabled:opacity-50 flex-shrink-0"
+              className="bg-gradient-to-br from-primary to-primary/90 hover:from-primary-hover hover:to-primary text-primary-foreground h-[56px] px-6 lg:px-8 shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 flex-shrink-0 rounded-2xl group"
             >
               {isAnalyzing ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
-                <Send className="w-5 h-5" />
+                <>
+                  <Send className="w-5 h-5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200" />
+                  <span className="sr-only">Send message</span>
+                </>
               )}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground mt-2 text-center">
-            Press Enter to send, Shift + Enter for new line
+          <p className="text-xs text-muted-foreground mt-3 text-center font-medium">
+            <kbd className="px-2 py-1 bg-secondary/50 rounded border border-border text-[10px] font-mono">Enter</kbd> to send • <kbd className="px-2 py-1 bg-secondary/50 rounded border border-border text-[10px] font-mono">Shift + Enter</kbd> for new line
           </p>
         </div>
       </div>

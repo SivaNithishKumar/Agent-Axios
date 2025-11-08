@@ -56,18 +56,24 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-secondary to-background p-4">
-      <div className="w-full max-w-md animate-fade-in">
-        <div className="bg-card rounded-2xl shadow-[var(--shadow-medium)] p-8 border border-border">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-secondary/30 to-background p-4 relative overflow-hidden">
+      {/* Animated background elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 -left-48 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse-soft" />
+        <div className="absolute bottom-1/4 -right-48 w-96 h-96 bg-accent/10 rounded-full blur-3xl animate-pulse-soft" style={{ animationDelay: '1s' }} />
+      </div>
+
+      <div className="w-full max-w-md relative z-10 animate-fade-in-up">
+        <div className="glass bg-card/95 rounded-3xl shadow-2xl p-8 border-2 border-border/50 backdrop-blur-xl">
           {/* Logo & Header */}
           <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-primary to-accent rounded-2xl flex items-center justify-center mb-4 shadow-[var(--shadow-soft)]">
-              <Shield className="w-8 h-8 text-primary-foreground" />
+            <div className="w-20 h-20 bg-gradient-to-br from-primary via-primary to-accent rounded-3xl flex items-center justify-center mb-5 shadow-2xl shadow-primary/30 ring-4 ring-primary/10 animate-pulse-glow">
+              <Shield className="w-10 h-10 text-primary-foreground" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground mb-2">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent mb-2">
               CVE Analyzer
             </h1>
-            <p className="text-muted-foreground text-center text-sm">
+            <p className="text-muted-foreground text-center text-sm leading-relaxed max-w-xs">
               AI-powered vulnerability analysis for your repositories
             </p>
           </div>
@@ -76,18 +82,18 @@ const Login = () => {
           {isLogin ? (
             <form onSubmit={handleLogin} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium">
+                <Label htmlFor="email" className="text-sm font-semibold">
                   Email
                 </Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <div className="relative group">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <Input
                     id="email"
                     type="email"
                     placeholder="you@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10 h-11 bg-secondary/50 border-border focus:border-primary transition-colors"
+                    className="pl-10 h-12 bg-secondary/30 border-2 border-border hover:border-primary/50 focus:border-primary transition-all duration-200 rounded-xl"
                     required
                     disabled={isLoading}
                   />
@@ -95,18 +101,18 @@ const Login = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium">
+                <Label htmlFor="password" className="text-sm font-semibold">
                   Password
                 </Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <div className="relative group">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <Input
                     id="password"
                     type="password"
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 h-11 bg-secondary/50 border-border focus:border-primary transition-colors"
+                    className="pl-10 h-12 bg-secondary/30 border-2 border-border hover:border-primary/50 focus:border-primary transition-all duration-200 rounded-xl"
                     required
                     disabled={isLoading}
                   />
@@ -115,12 +121,12 @@ const Login = () => {
 
               <Button
                 type="submit"
-                className="w-full h-11 bg-primary hover:bg-primary-hover text-primary-foreground font-medium shadow-[var(--shadow-soft)] transition-all hover:shadow-[var(--shadow-medium)] hover:scale-[1.02]"
+                className="w-full h-12 bg-gradient-to-r from-primary to-primary/90 hover:from-primary-hover hover:to-primary text-primary-foreground font-semibold shadow-lg shadow-primary/30 transition-all duration-200 hover:shadow-xl hover:shadow-primary/40 hover:scale-[1.02] rounded-xl"
                 disabled={isLoading}
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                     Signing in...
                   </>
                 ) : (
@@ -132,7 +138,7 @@ const Login = () => {
             <form onSubmit={handleRegister} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="firstName" className="text-sm font-medium">
+                  <Label htmlFor="firstName" className="text-sm font-semibold">
                     First Name
                   </Label>
                   <Input
@@ -141,13 +147,13 @@ const Login = () => {
                     placeholder="John"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    className="h-11 bg-secondary/50 border-border focus:border-primary transition-colors"
+                    className="h-12 bg-secondary/30 border-2 border-border hover:border-primary/50 focus:border-primary transition-all duration-200 rounded-xl"
                     required
                     disabled={isLoading}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lastName" className="text-sm font-medium">
+                  <Label htmlFor="lastName" className="text-sm font-semibold">
                     Last Name
                   </Label>
                   <Input
@@ -156,7 +162,7 @@ const Login = () => {
                     placeholder="Doe"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    className="h-11 bg-secondary/50 border-border focus:border-primary transition-colors"
+                    className="h-12 bg-secondary/30 border-2 border-border hover:border-primary/50 focus:border-primary transition-all duration-200 rounded-xl"
                     required
                     disabled={isLoading}
                   />
@@ -164,7 +170,7 @@ const Login = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="company" className="text-sm font-medium">
+                <Label htmlFor="company" className="text-sm font-semibold">
                   Company (Optional)
                 </Label>
                 <Input
@@ -173,24 +179,24 @@ const Login = () => {
                   placeholder="Acme Inc."
                   value={company}
                   onChange={(e) => setCompany(e.target.value)}
-                  className="h-11 bg-secondary/50 border-border focus:border-primary transition-colors"
+                  className="h-12 bg-secondary/30 border-2 border-border hover:border-primary/50 focus:border-primary transition-all duration-200 rounded-xl"
                   disabled={isLoading}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="reg-email" className="text-sm font-medium">
+                <Label htmlFor="reg-email" className="text-sm font-semibold">
                   Email
                 </Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <div className="relative group">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <Input
                     id="reg-email"
                     type="email"
                     placeholder="you@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10 h-11 bg-secondary/50 border-border focus:border-primary transition-colors"
+                    className="pl-10 h-12 bg-secondary/30 border-2 border-border hover:border-primary/50 focus:border-primary transition-all duration-200 rounded-xl"
                     required
                     disabled={isLoading}
                   />
@@ -198,18 +204,18 @@ const Login = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="reg-password" className="text-sm font-medium">
+                <Label htmlFor="reg-password" className="text-sm font-semibold">
                   Password
                 </Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <div className="relative group">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <Input
                     id="reg-password"
                     type="password"
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 h-11 bg-secondary/50 border-border focus:border-primary transition-colors"
+                    className="pl-10 h-12 bg-secondary/30 border-2 border-border hover:border-primary/50 focus:border-primary transition-all duration-200 rounded-xl"
                     required
                     minLength={8}
                     disabled={isLoading}
@@ -219,12 +225,12 @@ const Login = () => {
 
               <Button
                 type="submit"
-                className="w-full h-11 bg-primary hover:bg-primary-hover text-primary-foreground font-medium shadow-[var(--shadow-soft)] transition-all hover:shadow-[var(--shadow-medium)] hover:scale-[1.02]"
+                className="w-full h-12 bg-gradient-to-r from-primary to-primary/90 hover:from-primary-hover hover:to-primary text-primary-foreground font-semibold shadow-lg shadow-primary/30 transition-all duration-200 hover:shadow-xl hover:shadow-primary/40 hover:scale-[1.02] rounded-xl"
                 disabled={isLoading}
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                     Creating account...
                   </>
                 ) : (
@@ -239,7 +245,7 @@ const Login = () => {
             <div className="mt-6 text-center">
               <button 
                 type="button"
-                className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                className="text-sm text-muted-foreground hover:text-primary transition-colors font-medium"
                 disabled={isLoading}
               >
                 Forgot password?
@@ -247,13 +253,13 @@ const Login = () => {
             </div>
           )}
 
-          <div className="mt-6 pt-6 border-t border-border text-center">
+          <div className="mt-6 pt-6 border-t-2 border-border/50 text-center">
             <p className="text-sm text-muted-foreground">
               {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
               <button 
                 type="button"
                 onClick={() => setIsLogin(!isLogin)}
-                className="text-primary hover:text-primary-hover font-medium transition-colors"
+                className="text-primary hover:text-primary-hover font-semibold transition-colors underline-offset-2 hover:underline"
                 disabled={isLoading}
               >
                 {isLogin ? 'Sign up' : 'Sign in'}
@@ -263,15 +269,19 @@ const Login = () => {
         </div>
 
         {/* Trust indicators */}
-        <div className="mt-8 flex items-center justify-center gap-6 text-sm text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <Shield className="w-4 h-4" />
-            <span>Secure</span>
+        <div className="mt-8 flex items-center justify-center gap-8 text-sm text-muted-foreground animate-fade-in" style={{ animationDelay: '200ms' }}>
+          <div className="flex items-center gap-2 group">
+            <div className="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center group-hover:bg-success/20 transition-colors">
+              <Shield className="w-4 h-4 text-success" />
+            </div>
+            <span className="font-medium">Secure</span>
           </div>
-          <div className="w-1 h-1 bg-muted-foreground rounded-full" />
-          <div className="flex items-center gap-2">
-            <Lock className="w-4 h-4" />
-            <span>Encrypted</span>
+          <div className="w-1 h-1 bg-muted-foreground/30 rounded-full" />
+          <div className="flex items-center gap-2 group">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+              <Lock className="w-4 h-4 text-primary" />
+            </div>
+            <span className="font-medium">Encrypted</span>
           </div>
         </div>
       </div>

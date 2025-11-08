@@ -107,7 +107,7 @@ export interface AnalysesList {
 export interface ProgressUpdate {
   analysis_id: number;
   progress: number;
-  stage: 'cloning' | 'chunking' | 'embedding' | 'searching' | 'validating' | 'finalizing';
+  stage: 'cloning' | 'chunking' | 'indexing' | 'cve_search' | 'decomposition' | 'code_search' | 'matching' | 'validating' | 'finalizing' | 'completed';
   message: string;
   timestamp: string;
 }
@@ -1386,12 +1386,16 @@ export function getAnalysisTypeDescription(type: AnalysisType): string {
  */
 export function getStageDescription(stage: string): string {
   const descriptions: Record<string, string> = {
-    cloning: 'Cloning repository...',
+    cloning: 'Cloning repository from GitHub...',
     chunking: 'Parsing and chunking code files...',
-    embedding: 'Generating code embeddings with Cohere...',
-    searching: 'Searching CVE database with FAISS...',
-    validating: 'Validating findings with GPT-4...',
-    finalizing: 'Generating reports and finalizing...',
+    indexing: 'Creating searchable codebase index with FAISS...',
+    cve_search: 'Searching CVE database for relevant vulnerabilities...',
+    decomposition: 'Decomposing CVE queries using AI (Hype)...',
+    code_search: 'Searching codebase for vulnerability patterns...',
+    matching: 'Matching CVEs to code locations...',
+    validating: 'Validating findings with GPT-4.1...',
+    finalizing: 'Generating reports and finalizing results...',
+    completed: 'Analysis completed successfully!',
   };
   return descriptions[stage] || stage;
 }
