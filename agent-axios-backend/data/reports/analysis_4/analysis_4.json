@@ -1,0 +1,27 @@
+{
+  "generated_at": "2025-11-07T21:35:25.152884",
+  "analysis": {
+    "analysis_id": 4,
+    "repo_url": "https://github.com/kingof64sqrs/views",
+    "repo_id": null,
+    "analysis_type": "SHORT",
+    "status": "pending",
+    "start_time": "2025-11-07T21:35:18.831941",
+    "end_time": null,
+    "config": {},
+    "error_message": null,
+    "total_files": 0,
+    "total_chunks": 0,
+    "total_findings": 0,
+    "created_at": "2025-11-07T21:35:18.831941",
+    "updated_at": "2025-11-07T21:35:18.831941"
+  },
+  "summary": {
+    "total_files_analyzed": 0,
+    "total_chunks_analyzed": 0,
+    "total_findings": 0,
+    "confirmed_vulnerabilities": 0,
+    "severity_breakdown": {}
+  },
+  "findings": []
+}

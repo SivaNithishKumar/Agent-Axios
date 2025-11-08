@@ -27,6 +27,14 @@ ENV/
 env.bak/
 venv.bak/
 
+# Node / JavaScript
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-store/
+.eslintcache
+
 # IDEs
 .vscode/
 .idea/
@@ -51,7 +59,7 @@ Thumbs.db
 .env.local
 
 # Jupyter Notebook
-.ipynb_checkpoints
+.ipynb_checkpoints/
 
 # mypy
 .mypy_cache/

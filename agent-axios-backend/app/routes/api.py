@@ -86,13 +86,16 @@ def get_analysis_results(analysis_id):
     try:
         from app.models import CVEFinding
         
+        # Refresh session to get latest data
+        db.session.expire_all()
         analysis = db.session.query(Analysis).filter_by(analysis_id=analysis_id).first()
         
         if not analysis:
             return jsonify({'error': 'Analysis not found'}), 404
         
-        if analysis.status != 'completed':
-            return jsonify({'error': 'Analysis not completed yet'}), 400
+        # Allow fetching results if completed or if end_time is set (race condition handling)
+        if analysis.status not in ['completed', 'failed'] and not analysis.end_time:
+            return jsonify({'error': 'Analysis not completed yet', 'status': analysis.status}), 400
         
         # Get findings
         findings = db.session.query(CVEFinding).filter_by(analysis_id=analysis_id).all()

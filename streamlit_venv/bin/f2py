@@ -1,4 +1,4 @@
-#!/home/ubuntu/sem/streamlit_venv/bin/python3
+#!/home/ubuntu/sem/streamlit_venv/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys

@@ -1,6 +1,6 @@
 """Analysis model."""
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, JSON, Text
+from sqlalchemy import Column, Integer, String, DateTime, JSON, Text, ForeignKey
 from sqlalchemy.orm import relationship
 from .base import Base
 
@@ -11,6 +11,7 @@ class Analysis(Base):
     
     analysis_id = Column(Integer, primary_key=True, autoincrement=True)
     repo_url = Column(String(500), nullable=False)
+    repo_id = Column(Integer, ForeignKey('repositories.repo_id'), nullable=True, index=True)
     analysis_type = Column(String(20), nullable=False)  # SHORT, MEDIUM, HARD
     status = Column(String(20), default='pending')  # pending, running, completed, failed
     start_time = Column(DateTime, default=datetime.utcnow)
@@ -24,6 +25,7 @@ class Analysis(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
+    repository = relationship('Repository', back_populates='analyses')
     code_chunks = relationship('CodeChunk', back_populates='analysis', cascade='all, delete-orphan')
     cve_findings = relationship('CVEFinding', back_populates='analysis', cascade='all, delete-orphan')
     
@@ -32,6 +34,7 @@ class Analysis(Base):
         return {
             'analysis_id': self.analysis_id,
             'repo_url': self.repo_url,
+            'repo_id': self.repo_id,
             'analysis_type': self.analysis_type,
             'status': self.status,
             'start_time': self.start_time.isoformat() if self.start_time else None,

@@ -46,12 +46,21 @@ def create_app(config_name='development'):
         cors_allowed_origins=app.config['SOCKETIO_CORS_ALLOWED_ORIGINS'],
         async_mode=app.config['SOCKETIO_ASYNC_MODE'],
         logger=True,
-        engineio_logger=True
+        engineio_logger=True,
+        ping_timeout=120,  # Increase timeout to 120 seconds
+        ping_interval=25,  # Send ping every 25 seconds
+        max_http_buffer_size=1e8  # Increase buffer size for large messages
     )
     
     # Register blueprints
-    from app.routes import api_bp, socketio_events
+    from app.routes import api_bp, auth_bp, repo_bp, notification_bp, chat_bp, dashboard_bp, report_bp, socketio_events
     app.register_blueprint(api_bp, url_prefix='/api')
+    app.register_blueprint(auth_bp, url_prefix='/api/auth')
+    app.register_blueprint(repo_bp, url_prefix='/api/repositories')
+    app.register_blueprint(notification_bp, url_prefix='/api/notifications')
+    app.register_blueprint(chat_bp, url_prefix='/api/chat')
+    app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
+    app.register_blueprint(report_bp, url_prefix='/api/reports')
     
     # Initialize LangSmith tracking
     if app.config['LANGSMITH_TRACING']:
