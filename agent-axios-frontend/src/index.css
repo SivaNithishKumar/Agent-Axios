@@ -292,4 +292,30 @@ All colors MUST be HSL.
   .animation-delay-4000 {
     animation-delay: 4s;
   }
+
+  /* Gradient animation for progress bars */
+  @keyframes gradient-x {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  .animate-gradient-x {
+    animation: gradient-x 3s ease infinite;
+    background-size: 200% 200%;
+  }
+
+  /* Grid background */
+  .bg-grid-white\/\[0\.02\] {
+    background-image: linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  }
+
+  /* Pulse animation with delay */
+  .delay-1000 {
+    animation-delay: 1s;
+  }
 }

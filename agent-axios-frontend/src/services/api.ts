@@ -1394,10 +1394,27 @@ export async function getDashboardOverview(): Promise<ApiResponse<any>> {
   await delay(400);
 
   const stats = mockDataStore.getDashboardStats();
+  const repos = mockDataStore.getRepositories();
+  const analyses = mockDataStore.getAnalyses();
 
   return {
     success: true,
     data: {
+      scans: {
+        total: stats.totalScans,
+        active: stats.activeScans,
+        completed: analyses.filter(a => a.status === 'completed').length,
+        failed: analyses.filter(a => a.status === 'failed').length,
+      },
+      repositories: {
+        total: stats.totalRepositories,
+        starred: repos.filter(r => r.starred).length,
+      },
+      vulnerabilities: {
+        total: stats.totalVulnerabilities,
+        critical: stats.criticalVulnerabilities,
+        high: stats.totalVulnerabilities - stats.criticalVulnerabilities,
+      },
       overview: stats,
     },
   };

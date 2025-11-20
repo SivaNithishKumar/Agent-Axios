@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   User, 
@@ -14,8 +13,7 @@ import {
   Palette, 
   Mail,
   Save,
-  Key,
-  Clock
+  Key
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import { toast } from "sonner";
@@ -49,16 +47,13 @@ const Settings = () => {
   };
 
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
-        <DashboardSidebar />
-        
-        <div className="flex-1 flex flex-col min-w-0">
-          <DashboardHeader />
-          
-          <div className="flex-1 overflow-hidden">
-            <ScrollArea className="h-full">
-              <div className="p-4 lg:p-8 max-w-5xl mx-auto">
+    <PageLayout
+      breadcrumbs={[
+        { label: "Dashboard", href: "/dashboard" },
+        { label: "Settings" },
+      ]}
+    >
+      <div className="flex flex-1 flex-col gap-6 p-4 md:p-6 max-w-5xl mx-auto">
                 {/* Page Header */}
                 <div className="mb-8">
                   <h1 className="text-3xl font-bold text-foreground mb-2">Settings</h1>
@@ -362,12 +357,8 @@ const Settings = () => {
                     </Card>
                   </TabsContent>
                 </Tabs>
-              </div>
-            </ScrollArea>
-          </div>
-        </div>
       </div>
-    </SidebarProvider>
+    </PageLayout>
   );
 };
 

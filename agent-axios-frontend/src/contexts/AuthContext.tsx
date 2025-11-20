@@ -46,6 +46,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.error('Failed to load user profile:', error);
           setAuthToken(null);
         }
+      } else {
+        // Auto-login with default user for demo/development
+        try {
+          const response = await apiLogin({
+            email: 'admin@agentaxios.com',
+            password: 'demo123',
+          });
+          if (response.success && response.data) {
+            setUser(response.data.user);
+          }
+        } catch (error) {
+          console.error('Auto-login failed:', error);
+        }
       }
       
       setIsLoading(false);

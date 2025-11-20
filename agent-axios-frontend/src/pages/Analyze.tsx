@@ -17,12 +17,22 @@ import {
   Clock,
   Zap,
   Sparkles,
-  Activity
+  Activity,
+  Search,
+  Code2,
+  Scan,
+  Target,
+  TrendingUp,
+  CircleDot,
+  Layers,
+  Lock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { AzureOpenAIService } from '@/services/azureOpenAI';
 import { VulnerabilityReportGenerator } from '@/lib/pdfGenerator';
@@ -208,46 +218,64 @@ export default function Analyze() {
     <PageLayout
       breadcrumbs={[
         { label: "Dashboard", href: "/dashboard" },
-        { label: "New Analysis" },
+        { label: "Security Analysis" },
       ]}
     >
-    <div className="flex-1 bg-gradient-to-br from-slate-900 via-indigo-900 to-purple-900 relative overflow-hidden">
-      {/* Animated background */}
-      <div className="absolute inset-0 opacity-20">
-        <div className="absolute top-0 -left-4 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
-        <div className="absolute top-0 -right-4 w-72 h-72 bg-indigo-500 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000"></div>
-        <div className="absolute -bottom-8 left-20 w-72 h-72 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000"></div>
+    <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-secondary/10 relative">
+      {/* Animated Background Grid */}
+      <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:50px_50px]" />
+      
+      {/* Gradient Orbs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-secondary/20 rounded-full blur-3xl animate-pulse delay-1000" />
       </div>
 
-      <div className="container max-w-5xl mx-auto px-4 py-12 relative z-10">
-        {/* Header */}
+      <div className="container max-w-7xl mx-auto px-4 py-8 relative z-10">
+        {/* Hero Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-12"
         >
-          <motion.div 
-            className="flex items-center justify-center mb-6"
-            animate={{ 
-              scale: [1, 1.05, 1],
-            }}
-            transition={{ 
-              duration: 2,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-          >
+          <div className="inline-flex items-center gap-3 mb-6 px-4 py-2 rounded-full bg-primary/10 border border-primary/20">
             <div className="relative">
-              <Shield className="w-16 h-16 text-indigo-400" />
-              <Sparkles className="w-6 h-6 text-yellow-400 absolute -top-1 -right-1 animate-pulse" />
+              <Shield className="w-5 h-5 text-primary" />
+              <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+              </span>
             </div>
-          </motion.div>
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent mb-4">
-            AI Security Analysis
+            <span className="text-sm font-medium text-primary">AI-Powered Security</span>
+          </div>
+
+          <h1 className="text-5xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-foreground via-primary to-secondary bg-clip-text text-transparent">
+            Repository Security Analysis
           </h1>
-          <p className="text-lg text-slate-300 max-w-2xl mx-auto">
-            Advanced vulnerability detection powered by Azure GPT-4 and autonomous security agents
+          <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+            Advanced vulnerability detection powered by <span className="font-semibold text-primary">Azure GPT-4</span> and autonomous security agents
           </p>
+
+          {/* Feature Pills */}
+          <div className="flex flex-wrap items-center justify-center gap-4 mt-8">
+            {[
+              { icon: <Brain className="w-4 h-4" />, label: "AI Agent" },
+              { icon: <Database className="w-4 h-4" />, label: "CVE Database" },
+              { icon: <Scan className="w-4 h-4" />, label: "Real-time Scan" },
+              { icon: <Lock className="w-4 h-4" />, label: "Secure Analysis" }
+            ].map((feature, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.1 * i }}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card border border-border shadow-sm"
+              >
+                <div className="text-primary">{feature.icon}</div>
+                <span className="text-sm font-medium">{feature.label}</span>
+              </motion.div>
+            ))}
+          </div>
         </motion.div>
 
         {/* Main Content */}
@@ -258,65 +286,119 @@ export default function Analyze() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="max-w-2xl mx-auto"
             >
-              <Card className="p-8 shadow-2xl border-slate-700 bg-slate-800/50 backdrop-blur-xl">
-                <div className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-200 mb-2 flex items-center gap-2">
-                      <GitBranch className="w-4 h-4" />
-                      Repository URL
-                    </label>
-                    <Input
-                      type="url"
-                      placeholder="https://github.com/username/repository"
-                      value={repoUrl}
-                      onChange={(e) => setRepoUrl(e.target.value)}
-                      className="h-12 text-base bg-slate-900/50 border-slate-600 text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:ring-indigo-500"
-                      onKeyDown={(e) => e.key === 'Enter' && startAnalysis()}
-                    />
-                    <p className="text-sm text-slate-400 mt-2 flex items-center gap-2">
-                      <Activity className="w-3 h-3" />
-                      AI agent will perform deep security analysis
-                    </p>
-                  </div>
+              <div className="grid lg:grid-cols-3 gap-6 mb-8">
+                {/* Main Input Card */}
+                <Card className="lg:col-span-2 shadow-xl border-2 hover:border-primary/50 transition-all duration-300">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center gap-2 text-2xl">
+                      <div className="p-2 rounded-lg bg-primary/10">
+                        <GitBranch className="w-6 h-6 text-primary" />
+                      </div>
+                      Repository Input
+                    </CardTitle>
+                    <CardDescription>
+                      Enter your GitHub repository URL to start comprehensive security analysis
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="space-y-3">
+                      <div className="relative">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                        <Input
+                          type="url"
+                          placeholder="https://github.com/username/repository"
+                          value={repoUrl}
+                          onChange={(e) => setRepoUrl(e.target.value)}
+                          className="h-14 pl-12 text-base border-2 focus-visible:ring-2 focus-visible:ring-primary"
+                          onKeyDown={(e) => e.key === 'Enter' && startAnalysis()}
+                        />
+                      </div>
+                      
+                      <div className="flex items-start gap-2 text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+                        <Activity className="w-4 h-4 mt-0.5 text-primary shrink-0" />
+                        <p>Our AI agent will clone, analyze, and scan your repository for known vulnerabilities using the latest CVE database</p>
+                      </div>
+                    </div>
 
-                  <Button
-                    onClick={startAnalysis}
-                    disabled={!repoUrl.trim()}
-                    className="w-full h-12 text-base bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg shadow-indigo-500/50 transition-all"
-                    size="lg"
-                  >
-                    <Sparkles className="mr-2 w-5 h-5" />
-                    Start Security Analysis
-                    <ArrowRight className="ml-2 w-5 h-5" />
-                  </Button>
-                </div>
-              </Card>
+                    <Button
+                      onClick={startAnalysis}
+                      disabled={!repoUrl.trim()}
+                      className="w-full h-14 text-base font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/25 transition-all duration-300 hover:scale-[1.02]"
+                      size="lg"
+                    >
+                      <Sparkles className="mr-2 w-5 h-5" />
+                      Start Security Analysis
+                      <ArrowRight className="ml-2 w-5 h-5" />
+                    </Button>
+                  </CardContent>
+                </Card>
 
-              <motion.div 
-                className="mt-8 text-center space-y-3"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
+                {/* Stats Card */}
+                <Card className="shadow-xl bg-gradient-to-br from-primary/10 via-card to-secondary/10">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Analysis Capabilities</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {[
+                      { icon: <Target className="w-5 h-5" />, label: "CVE Detection", desc: "Known vulnerabilities" },
+                      { icon: <Code2 className="w-5 h-5" />, label: "Code Analysis", desc: "Deep semantic scan" },
+                      { icon: <Brain className="w-5 h-5" />, label: "AI Validation", desc: "GPT-4 powered" },
+                      { icon: <FileText className="w-5 h-5" />, label: "Detailed Report", desc: "PDF generation" }
+                    ].map((item, i) => (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.1 * i }}
+                        className="flex items-start gap-3 p-3 rounded-lg bg-card/50 backdrop-blur-sm border border-border/50"
+                      >
+                        <div className="p-2 rounded-md bg-primary/10 text-primary">
+                          {item.icon}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm">{item.label}</p>
+                          <p className="text-xs text-muted-foreground">{item.desc}</p>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Info Banner */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
+                className="max-w-4xl mx-auto"
               >
-                <p className="text-sm text-slate-300">
-                  Powered by Azure GPT-4 and advanced semantic analysis
-                </p>
-                <div className="flex items-center justify-center gap-6 text-xs text-slate-400">
-                  <div className="flex items-center gap-1">
-                    <Brain className="w-3 h-3" />
-                    <span>Autonomous AI Agent</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Database className="w-3 h-3" />
-                    <span>CVE Database</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Shield className="w-3 h-3" />
-                    <span>Real-time Analysis</span>
-                  </div>
-                </div>
+                <Card className="bg-gradient-to-r from-primary/5 via-transparent to-secondary/5 border-primary/20">
+                  <CardContent className="py-4">
+                    <div className="flex flex-wrap items-center justify-center gap-6 text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-full bg-primary/20">
+                          <Zap className="w-3.5 h-3.5 text-primary" />
+                        </div>
+                        <span className="font-medium">Fast Analysis</span>
+                      </div>
+                      <Separator orientation="vertical" className="h-4" />
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-full bg-primary/20">
+                          <Shield className="w-3.5 h-3.5 text-primary" />
+                        </div>
+                        <span className="font-medium">Secure & Private</span>
+                      </div>
+                      <Separator orientation="vertical" className="h-4" />
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-full bg-primary/20">
+                          <TrendingUp className="w-3.5 h-3.5 text-primary" />
+                        </div>
+                        <span className="font-medium">AI-Powered Accuracy</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </motion.div>
             </motion.div>
           ) : isAnalyzing ? (
@@ -325,95 +407,150 @@ export default function Analyze() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="space-y-6"
+              className="grid lg:grid-cols-3 gap-6"
             >
-              {/* Progress Header */}
-              <Card className="p-6 shadow-2xl border-slate-700 bg-slate-800/50 backdrop-blur-xl">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
-                        <Activity className="w-5 h-5 text-indigo-400 animate-pulse" />
-                        Analyzing Repository
-                      </h3>
-                      <p className="text-sm text-slate-400 truncate mt-1">
-                        {repoUrl}
-                      </p>
+              {/* Left Column - Progress & Stats */}
+              <div className="lg:col-span-1 space-y-6">
+                {/* Progress Card */}
+                <Card className="shadow-xl border-2 border-primary/20 overflow-hidden">
+                  <div className="h-2 bg-gradient-to-r from-primary via-secondary to-primary animate-gradient-x" />
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <div className="relative">
+                        <Scan className="w-5 h-5 text-primary animate-pulse" />
+                        <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                        </span>
+                      </div>
+                      Analysis Progress
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Completion</span>
+                        <Badge variant="outline" className="font-mono font-bold text-base">
+                          {currentProgress}%
+                        </Badge>
+                      </div>
+                      <Progress value={currentProgress} className="h-3" />
                     </div>
-                    <div className="flex items-center gap-3 text-sm text-slate-300 bg-slate-900/50 px-4 py-2 rounded-lg">
-                      <Clock className="w-4 h-4 text-indigo-400" />
-                      <span className="font-mono font-semibold">{analysisTime}s</span>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-slate-300">
-                        Analysis Progress
-                      </span>
-                      <span className="text-sm font-bold text-indigo-400">
-                        {currentProgress}%
-                      </span>
-                    </div>
-                    <Progress value={currentProgress} className="h-3 bg-slate-700" />
-                  </div>
 
-                  {isGeneratingReport && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="flex items-center gap-2 text-sm text-yellow-400 bg-yellow-400/10 px-3 py-2 rounded-lg"
-                    >
-                      <Sparkles className="w-4 h-4 animate-pulse" />
-                      <span>AI generating comprehensive security report...</span>
-                    </motion.div>
-                  )}
-                </div>
-              </Card>
+                    <Separator />
 
-              {/* Events Timeline */}
-              <Card className="p-6 shadow-2xl border-slate-700 bg-slate-800/50 backdrop-blur-xl max-h-[500px] overflow-y-auto">
-                <h3 className="text-lg font-semibold text-slate-100 mb-4 flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-indigo-400" />
-                  Analysis Events
-                </h3>
-                <div className="space-y-3">
-                  <AnimatePresence>
-                    {events.map((event, index) => (
-                      <motion.div
-                        key={event.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.05 }}
-                        className={cn(
-                          "flex items-start gap-3 p-4 rounded-lg transition-all border",
-                          event.status === 'active' && "bg-indigo-500/10 border-indigo-500/30 shadow-lg shadow-indigo-500/20",
-                          event.status === 'completed' && "bg-slate-700/30 border-slate-600/30"
-                        )}
-                      >
-                        <div className={cn(
-                          "mt-0.5 p-2.5 rounded-full shrink-0 transition-all",
-                          event.status === 'active' && "bg-indigo-600 text-white shadow-lg shadow-indigo-500/50",
-                          event.status === 'completed' && "bg-slate-600 text-slate-300"
-                        )}>
-                          {event.status === 'active' ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            event.icon
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                        <div className="flex items-center gap-2 text-primary mb-1">
+                          <Clock className="w-4 h-4" />
+                          <span className="text-xs font-medium">Time</span>
+                        </div>
+                        <p className="text-2xl font-bold font-mono">{analysisTime}s</p>
+                      </div>
+                      
+                      <div className="p-3 rounded-lg bg-secondary/10 border border-secondary/20">
+                        <div className="flex items-center gap-2 text-secondary mb-1">
+                          <Layers className="w-4 h-4" />
+                          <span className="text-xs font-medium">Events</span>
+                        </div>
+                        <p className="text-2xl font-bold font-mono">{events.length}</p>
+                      </div>
+                    </div>
+
+                    <div className="p-3 rounded-lg bg-muted">
+                      <p className="text-xs text-muted-foreground truncate mb-1">Repository</p>
+                      <p className="text-sm font-medium truncate">{repoUrl}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* AI Status Card */}
+                {isGeneratingReport && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                  >
+                    <Card className="shadow-xl border-2 border-yellow-500/20 bg-gradient-to-br from-yellow-500/10 to-orange-500/10">
+                      <CardContent className="pt-6">
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <Brain className="w-8 h-8 text-yellow-500 animate-pulse" />
+                            <Sparkles className="w-4 h-4 text-yellow-400 absolute -top-1 -right-1" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-semibold text-yellow-600 dark:text-yellow-400">AI Agent Active</p>
+                            <p className="text-sm text-muted-foreground">Generating security report...</p>
+                          </div>
+                          <Loader2 className="w-5 h-5 text-yellow-500 animate-spin" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                )}
+              </div>
+
+              {/* Right Column - Events Timeline */}
+              <Card className="lg:col-span-2 shadow-xl max-h-[700px] overflow-hidden flex flex-col">
+                <CardHeader className="border-b">
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-primary" />
+                    Live Analysis Stream
+                  </CardTitle>
+                  <CardDescription>
+                    Real-time security analysis events and findings
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex-1 overflow-y-auto pt-6">
+                  <div className="space-y-3">
+                    <AnimatePresence>
+                      {events.map((event, index) => (
+                        <motion.div
+                          key={event.id}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 20 }}
+                          transition={{ duration: 0.3 }}
+                          className={cn(
+                            "flex items-start gap-4 p-4 rounded-xl transition-all duration-300 border-2",
+                            event.status === 'active' && "bg-primary/5 border-primary/30 shadow-lg shadow-primary/10",
+                            event.status === 'completed' && "bg-muted/30 border-border opacity-70 hover:opacity-100"
                           )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-100">
-                            {event.message}
-                          </p>
-                          <p className="text-xs text-slate-400 mt-1 font-mono">
-                            {event.timestamp.toLocaleTimeString()}
-                          </p>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                </div>
+                        >
+                          <div className={cn(
+                            "p-2.5 rounded-lg shrink-0 transition-all duration-300",
+                            event.status === 'active' && "bg-primary text-primary-foreground shadow-lg shadow-primary/50 scale-110",
+                            event.status === 'completed' && "bg-muted text-muted-foreground"
+                          )}>
+                            {event.status === 'active' ? (
+                              <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : (
+                              <div className="w-5 h-5">{event.icon}</div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <p className="text-sm font-semibold leading-tight">
+                                {event.message}
+                              </p>
+                              {event.status === 'active' && (
+                                <Badge variant="default" className="shrink-0 animate-pulse">
+                                  Active
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              <span className="font-mono">{event.timestamp.toLocaleTimeString()}</span>
+                              <span>•</span>
+                              <span className="capitalize">{event.stage.replace(/_/g, ' ')}</span>
+                              <span>•</span>
+                              <span>{event.progress}%</span>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                </CardContent>
               </Card>
             </motion.div>
           ) : (
@@ -422,82 +559,171 @@ export default function Analyze() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="max-w-2xl mx-auto"
             >
-              <Card className="p-8 shadow-2xl border-slate-700 bg-slate-800/50 backdrop-blur-xl overflow-hidden relative">
-                {/* Success glow effect */}
-                <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 to-emerald-500/10 animate-pulse"></div>
-                
-                <div className="text-center space-y-6 relative z-10">
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", duration: 0.6 }}
-                    className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 shadow-lg shadow-green-500/50"
-                  >
-                    <CheckCircle2 className="w-10 h-10 text-white" />
-                  </motion.div>
+              <div className="grid lg:grid-cols-5 gap-6">
+                {/* Results Summary */}
+                <div className="lg:col-span-3 space-y-6">
+                  <Card className="shadow-xl border-2 border-green-500/20 overflow-hidden">
+                    <div className="h-2 bg-gradient-to-r from-green-500 to-emerald-500" />
+                    <CardContent className="pt-8">
+                      <div className="text-center space-y-6">
+                        <motion.div
+                          initial={{ scale: 0, rotate: -180 }}
+                          animate={{ scale: 1, rotate: 0 }}
+                          transition={{ type: "spring", stiffness: 200, damping: 15 }}
+                          className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 shadow-2xl shadow-green-500/50"
+                        >
+                          <CheckCircle2 className="w-14 h-14 text-white" strokeWidth={3} />
+                        </motion.div>
 
-                  <div>
-                    <h2 className="text-3xl font-bold text-slate-100 mb-2">
-                      Analysis Complete!
-                    </h2>
-                    <p className="text-slate-300">
-                      Security analysis finished in {analysisTime} seconds
-                    </p>
-                  </div>
+                        <div>
+                          <h2 className="text-4xl font-bold mb-3 bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                            Analysis Complete!
+                          </h2>
+                          <p className="text-muted-foreground text-lg">
+                            Completed in <span className="font-semibold text-foreground">{analysisTime} seconds</span>
+                          </p>
+                        </div>
 
-                  <motion.div 
-                    className="bg-gradient-to-r from-amber-500/20 to-red-500/20 border border-amber-500/30 rounded-xl p-6 backdrop-blur-sm"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                  >
-                    <div className="flex items-center justify-center gap-3 mb-3">
-                      <AlertTriangle className="w-8 h-8 text-amber-400" />
-                      <span className="text-5xl font-bold bg-gradient-to-r from-amber-400 to-red-400 bg-clip-text text-transparent">
-                        {vulnerabilityCount}
-                      </span>
-                    </div>
-                    <p className="text-base font-semibold text-slate-200">
-                      {vulnerabilityCount === 1 ? 'Vulnerability' : 'Vulnerabilities'} Detected
-                    </p>
-                    <p className="text-sm text-slate-400 mt-2">
-                      Critical security issues requiring immediate attention
-                    </p>
-                  </motion.div>
+                        <Separator />
 
-                  <div className="space-y-3 pt-4">
-                    <Button
-                      onClick={downloadReport}
-                      disabled={!reportData || isGeneratingReport}
-                      className="w-full h-12 text-base bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg shadow-indigo-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      size="lg"
-                    >
-                      {isGeneratingReport ? (
-                        <>
-                          <Loader2 className="mr-2 w-5 h-5 animate-spin" />
-                          Generating Report...
-                        </>
-                      ) : (
-                        <>
-                          <Download className="mr-2 w-5 h-5" />
-                          Download Security Report (PDF)
-                        </>
-                      )}
-                    </Button>
+                        {/* Vulnerability Count */}
+                        <motion.div
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.2 }}
+                          className={cn(
+                            "p-8 rounded-2xl border-2 relative overflow-hidden",
+                            vulnerabilityCount > 0 
+                              ? "bg-gradient-to-br from-red-500/10 via-orange-500/10 to-yellow-500/10 border-red-500/30" 
+                              : "bg-gradient-to-br from-green-500/10 to-emerald-500/10 border-green-500/30"
+                          )}
+                        >
+                          <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:20px_20px]" />
+                          <div className="relative z-10">
+                            <div className="flex items-center justify-center gap-4 mb-4">
+                              {vulnerabilityCount > 0 ? (
+                                <AlertTriangle className="w-12 h-12 text-red-500" strokeWidth={2.5} />
+                              ) : (
+                                <Shield className="w-12 h-12 text-green-500" strokeWidth={2.5} />
+                              )}
+                              <span className={cn(
+                                "text-7xl font-black",
+                                vulnerabilityCount > 0 
+                                  ? "bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 bg-clip-text text-transparent"
+                                  : "bg-gradient-to-r from-green-500 to-emerald-500 bg-clip-text text-transparent"
+                              )}>
+                                {vulnerabilityCount}
+                              </span>
+                            </div>
+                            <p className="text-xl font-bold mb-2">
+                              {vulnerabilityCount === 0 ? 'No Vulnerabilities Found' : 
+                               vulnerabilityCount === 1 ? 'Vulnerability Detected' : 'Vulnerabilities Detected'}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {vulnerabilityCount > 0 
+                                ? 'Security issues requiring attention identified'
+                                : 'Your codebase appears to be secure'}
+                            </p>
+                          </div>
+                        </motion.div>
 
-                    <Button
-                      onClick={resetAnalysis}
-                      variant="outline"
-                      className="w-full h-12 text-base border-slate-600 text-slate-200 hover:bg-slate-700/50"
-                      size="lg"
-                    >
-                      Analyze Another Repository
-                    </Button>
-                  </div>
+                        {/* Actions */}
+                        <div className="space-y-3 pt-4">
+                          <Button
+                            onClick={downloadReport}
+                            disabled={!reportData || isGeneratingReport}
+                            className="w-full h-14 text-base font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
+                            size="lg"
+                          >
+                            {isGeneratingReport ? (
+                              <>
+                                <Loader2 className="mr-2 w-5 h-5 animate-spin" />
+                                Generating Report...
+                              </>
+                            ) : (
+                              <>
+                                <Download className="mr-2 w-5 h-5" />
+                                Download Full Security Report
+                                <FileText className="ml-2 w-5 h-5" />
+                              </>
+                            )}
+                          </Button>
+
+                          <Button
+                            onClick={resetAnalysis}
+                            variant="outline"
+                            className="w-full h-12 text-base border-2 hover:border-primary hover:bg-primary/5"
+                            size="lg"
+                          >
+                            <GitBranch className="mr-2 w-5 h-5" />
+                            Analyze Another Repository
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
-              </Card>
+
+                {/* Quick Stats Sidebar */}
+                <div className="lg:col-span-2 space-y-6">
+                  <Card className="shadow-xl">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Analysis Summary</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {[
+                        { label: "Duration", value: `${analysisTime}s`, icon: <Clock className="w-5 h-5 text-primary" /> },
+                        { label: "Repository", value: repoUrl.split('/').pop() || 'Unknown', icon: <GitBranch className="w-5 h-5 text-primary" /> },
+                        { label: "Events Logged", value: events.length.toString(), icon: <Activity className="w-5 h-5 text-primary" /> },
+                        { label: "Status", value: "Completed", icon: <CheckCircle2 className="w-5 h-5 text-green-500" /> }
+                      ].map((stat, i) => (
+                        <motion.div
+                          key={i}
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.1 * i }}
+                          className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border"
+                        >
+                          <div className="flex items-center gap-3">
+                            {stat.icon}
+                            <span className="text-sm font-medium">{stat.label}</span>
+                          </div>
+                          <span className="text-sm font-bold truncate max-w-[150px]">{stat.value}</span>
+                        </motion.div>
+                      ))}
+                    </CardContent>
+                  </Card>
+
+                  {vulnerabilityCount > 0 && (
+                    <Card className="shadow-xl border-red-500/20">
+                      <CardHeader>
+                        <CardTitle className="text-lg flex items-center gap-2 text-red-600 dark:text-red-400">
+                          <AlertTriangle className="w-5 h-5" />
+                          Action Required
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3 text-sm">
+                        <p>Security vulnerabilities have been detected in your repository.</p>
+                        <ul className="space-y-2 text-muted-foreground">
+                          <li className="flex items-start gap-2">
+                            <CircleDot className="w-4 h-4 mt-0.5 shrink-0" />
+                            <span>Review the detailed report</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <CircleDot className="w-4 h-4 mt-0.5 shrink-0" />
+                            <span>Prioritize critical findings</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <CircleDot className="w-4 h-4 mt-0.5 shrink-0" />
+                            <span>Apply recommended patches</span>
+                          </li>
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
