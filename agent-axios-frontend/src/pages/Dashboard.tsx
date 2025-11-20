@@ -1,6 +1,3 @@
-import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
-import { SidebarProvider } from "@/components/ui/sidebar";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -16,6 +13,7 @@ import {
   GitBranch,
   Bug
 } from "lucide-react";
+import { PageLayout } from "@/components/layout/PageLayout";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -103,23 +101,15 @@ const Dashboard = () => {
   };
 
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
-        <DashboardSidebar />
-        
-        <div className="flex-1 flex flex-col min-w-0">
-          <DashboardHeader />
-          
-          {/* Main Dashboard Content */}
-          <div className="flex-1 overflow-auto">
-            <div className="p-6 space-y-6">
-              {/* Welcome Section */}
-              <div>
-                <h1 className="text-3xl font-bold text-foreground mb-2">Security Dashboard</h1>
-                <p className="text-muted-foreground">Monitor your application security and vulnerability analysis</p>
-              </div>
+    <PageLayout breadcrumbs={[{ label: "Dashboard" }]}>
+      <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        {/* Welcome Section */}
+        <div>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Security Dashboard</h1>
+          <p className="text-muted-foreground">Monitor your application security and vulnerability analysis</p>
+        </div>
 
-              {/* Stats Grid */}
+        {/* Stats Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {stats.map((stat, index) => {
                   const Icon = stat.icon;
@@ -289,11 +279,8 @@ const Dashboard = () => {
                   </div>
                 </Card>
               </div>
-            </div>
-          </div>
-        </div>
       </div>
-    </SidebarProvider>
+    </PageLayout>
   );
 };
 

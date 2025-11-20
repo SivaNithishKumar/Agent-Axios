@@ -30,6 +30,7 @@ import { useRepositories } from "@/hooks/useRepositories";
 import { formatDistanceToNow } from "date-fns";
 import type { Report, AnalysisStatus } from "@/services/api";
 import { useNavigate } from "react-router-dom";
+import { PageLayout } from "@/components/layout/PageLayout";
 
 const Reports = () => {
   const navigate = useNavigate();
@@ -110,14 +111,20 @@ const Reports = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Security Reports</h1>
-        <p className="text-muted-foreground mt-1">
-          View and manage your vulnerability analysis reports
-        </p>
-      </div>
+    <PageLayout
+      breadcrumbs={[
+        { label: "Dashboard", href: "/dashboard" },
+        { label: "Reports" },
+      ]}
+    >
+      <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        {/* Page Header */}
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Security Reports</h1>
+          <p className="text-muted-foreground mt-1">
+            View and manage your vulnerability analysis reports
+          </p>
+        </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -389,7 +396,8 @@ const Reports = () => {
           )}
         </>
       )}
-    </div>
+      </div>
+    </PageLayout>
   );
 };
 

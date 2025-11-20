@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Plus, Search, Star, GitFork, Clock, AlertCircle, CheckCircle, Play, Trash2, Edit, RefreshCw, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +42,7 @@ import { useRepositories } from "@/hooks/useRepositories";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import type { Repository } from "@/services/api";
+import { PageLayout } from "@/components/layout/PageLayout";
 
 export default function Repositories() {
   const { 
@@ -216,22 +217,28 @@ export default function Repositories() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Repositories</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage your connected repositories and trigger security scans
-          </p>
-        </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Repository
-            </Button>
-          </DialogTrigger>
+    <PageLayout
+      breadcrumbs={[
+        { label: "Dashboard", href: "/dashboard" },
+        { label: "Repositories" },
+      ]}
+    >
+      <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
+        {/* Header */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Repositories</h1>
+            <p className="text-muted-foreground mt-1">
+              Manage your connected repositories and trigger security scans
+            </p>
+          </div>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="shadow-sm">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Repository
+              </Button>
+            </DialogTrigger>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>Add New Repository</DialogTitle>
@@ -578,6 +585,7 @@ export default function Repositories() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+      </div>
+    </PageLayout>
   );
 }

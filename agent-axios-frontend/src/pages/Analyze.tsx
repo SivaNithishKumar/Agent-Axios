@@ -26,6 +26,7 @@ import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { AzureOpenAIService } from '@/services/azureOpenAI';
 import { VulnerabilityReportGenerator } from '@/lib/pdfGenerator';
+import { PageLayout } from '@/components/layout/PageLayout';
 
 interface AnalysisEvent {
   id: number;
@@ -204,7 +205,13 @@ export default function Analyze() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-900 to-purple-900 relative overflow-hidden">
+    <PageLayout
+      breadcrumbs={[
+        { label: "Dashboard", href: "/dashboard" },
+        { label: "New Analysis" },
+      ]}
+    >
+    <div className="flex-1 bg-gradient-to-br from-slate-900 via-indigo-900 to-purple-900 relative overflow-hidden">
       {/* Animated background */}
       <div className="absolute inset-0 opacity-20">
         <div className="absolute top-0 -left-4 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
@@ -496,5 +503,6 @@ export default function Analyze() {
         </AnimatePresence>
       </div>
     </div>
+    </PageLayout>
   );
 }
