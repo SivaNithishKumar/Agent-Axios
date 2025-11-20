@@ -45,7 +45,7 @@ import {
 const navigationItems = [
   { id: 1, title: "Dashboard", icon: Home, path: "/dashboard" },
   { id: 2, title: "New Analysis", icon: Scan, path: "/analyze" },
-  { id: 3, title: "Real-Time Analysis", icon: Activity, path: "/analyze-realtime" },
+  // { id: 3, title: "Real-Time Analysis", icon: Activity, path: "/analyze-realtime" },
   { id: 4, title: "Repositories", icon: FolderGit2, path: "/repositories" },
   { id: 5, title: "Reports", icon: FileText, path: "/reports" },
   { id: 6, title: "Settings", icon: Settings, path: "/settings" },

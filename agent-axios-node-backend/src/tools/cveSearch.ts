@@ -69,15 +69,10 @@ export const createSearchCVEDatabaseTool = (conversationSession: ConversationSes
 
         const cves = result.results || result.data || [];
 
-        // Filter by CVSS if specified
-        let filteredCves = cves;
-        if (minCvss > 0.0) {
-          const originalCount = cves.length;
-          filteredCves = cves.filter((cve: any) => (cve.cvss_score || 0) >= minCvss);
-          logger.info(`Filtered by CVSS >= ${minCvss}: ${originalCount} → ${filteredCves.length} CVEs`);
-        }
+        // Accept all retrieved CVEs (no filtering)
+        const filteredCves = cves;
 
-        logger.info(`✓ FINAL RESULT: ${filteredCves.length} CVEs matching all criteria`);
+        logger.info(`✓ FINAL RESULT: ${filteredCves.length} CVEs retrieved`);
 
         if (filteredCves.length > 0) {
           const sample = filteredCves[0];
