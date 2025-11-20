@@ -25,7 +25,8 @@ import {
   TrendingUp,
   CircleDot,
   Layers,
-  Lock
+  Lock,
+  XCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,19 +35,30 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { AzureOpenAIService } from '@/services/azureOpenAI';
-import { VulnerabilityReportGenerator } from '@/lib/pdfGenerator';
+import { nodeBackendService, type StreamEvent } from '@/services/nodeBackend';
 import { PageLayout } from '@/components/layout/PageLayout';
 
 interface AnalysisEvent {
   id: number;
-  stage: string;
+  type: 'tool' | 'progress' | 'message' | 'error';
+  toolName?: string;
   message: string;
-  progress: number;
   timestamp: Date;
   icon: React.ReactNode;
-  status: 'pending' | 'active' | 'completed';
+  status: 'active' | 'completed' | 'error';
 }
+
+const TOOL_ICONS: Record<string, React.ReactNode> = {
+  clone_repository: <GitBranch className="w-4 h-4" />,
+  build_codebase_index: <Database className="w-4 h-4" />,
+  analyze_repository_structure: <FileSearch className="w-4 h-4" />,
+  search_codebase_semantically: <Code2 className="w-4 h-4" />,
+  search_cve_database: <Shield className="w-4 h-4" />,
+  validate_vulnerability_match: <Brain className="w-4 h-4" />,
+  record_finding: <Bug className="w-4 h-4" />,
+  generate_vulnerability_report: <FileText className="w-4 h-4" />,
+  default: <Activity className="w-4 h-4" />,
+};
 
 export default function Analyze() {
   const navigate = useNavigate();
@@ -58,63 +70,63 @@ export default function Analyze() {
   const [vulnerabilityCount, setVulnerabilityCount] = useState(0);
   const [analysisTime, setAnalysisTime] = useState(0);
   const [reportData, setReportData] = useState<any>(null);
-  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [aiResponse, setAiResponse] = useState('');
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const eventIdRef = useRef(1);
   const timerRef = useRef<NodeJS.Timeout>();
   const startTimeRef = useRef<Date>();
-  const azureService = useRef(new AzureOpenAIService());
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Mock analysis events based on backend flow
-  const mockAnalysisSequence = [
-    { stage: 'initializing', message: 'Initializing security analysis engine...', progress: 5, icon: <Zap className="w-4 h-4" />, delay: 2000 },
-    { stage: 'cloning', message: 'Cloning repository from remote...', progress: 15, icon: <GitBranch className="w-4 h-4" />, delay: 3000 },
-    { stage: 'cloning', message: 'Repository cloned successfully', progress: 20, icon: <CheckCircle2 className="w-4 h-4" />, delay: 2000 },
-    { stage: 'indexing', message: 'Scanning codebase structure...', progress: 25, icon: <FileSearch className="w-4 h-4" />, delay: 2500 },
-    { stage: 'indexing', message: 'Processing and chunking source files...', progress: 35, icon: <FileText className="w-4 h-4" />, delay: 3000 },
-    { stage: 'indexing', message: 'Building semantic index...', progress: 45, icon: <Database className="w-4 h-4" />, delay: 2500 },
-    { stage: 'indexing', message: 'Indexed 847 code chunks across 143 files', progress: 50, icon: <CheckCircle2 className="w-4 h-4" />, delay: 2000 },
-    { stage: 'agent_starting', message: 'Launching autonomous security agent...', progress: 55, icon: <Brain className="w-4 h-4" />, delay: 2000 },
-    { stage: 'agent_analyzing', message: 'Agent analyzing repository structure...', progress: 60, icon: <Brain className="w-4 h-4" />, delay: 2500 },
-    { stage: 'agent_analyzing', message: 'Searching CVE database for known vulnerabilities...', progress: 65, icon: <Database className="w-4 h-4" />, delay: 3000 },
-    { stage: 'agent_analyzing', message: 'Found 8 potentially relevant CVEs', progress: 70, icon: <AlertTriangle className="w-4 h-4" />, delay: 2000 },
-    { stage: 'agent_analyzing', message: 'Analyzing CVE-2024-1337: SQL Injection vulnerability...', progress: 75, icon: <Bug className="w-4 h-4" />, delay: 3500 },
-    { stage: 'agent_analyzing', message: 'Searching codebase for vulnerable patterns...', progress: 78, icon: <FileSearch className="w-4 h-4" />, delay: 2500 },
-    { stage: 'agent_analyzing', message: 'Validating vulnerability match...', progress: 80, icon: <Shield className="w-4 h-4" />, delay: 3000 },
-    { stage: 'agent_analyzing', message: 'Confirmed vulnerability in database.py', progress: 82, icon: <AlertTriangle className="w-4 h-4" />, delay: 2000 },
-    { stage: 'agent_analyzing', message: 'Analyzing CVE-2024-2891: Cross-Site Scripting (XSS)...', progress: 85, icon: <Bug className="w-4 h-4" />, delay: 3000 },
-    { stage: 'agent_analyzing', message: 'Confirmed vulnerability in templates/user.html', progress: 88, icon: <AlertTriangle className="w-4 h-4" />, delay: 2500 },
-    { stage: 'agent_analyzing', message: 'Analyzing CVE-2024-3782: Insecure Deserialization...', progress: 91, icon: <Bug className="w-4 h-4" />, delay: 3000 },
-    { stage: 'agent_analyzing', message: 'Confirmed vulnerability in api/handlers.py', progress: 94, icon: <AlertTriangle className="w-4 h-4" />, delay: 2500 },
-    { stage: 'generating_report', message: 'Generating comprehensive security report...', progress: 97, icon: <FileText className="w-4 h-4" />, delay: 2500 },
-    { stage: 'completed', message: 'Security analysis completed successfully', progress: 100, icon: <CheckCircle2 className="w-4 h-4" />, delay: 1500 }
-  ];
+  const addEvent = (
+    type: AnalysisEvent['type'],
+    message: string,
+    toolName?: string,
+    status: AnalysisEvent['status'] = 'active'
+  ) => {
+    const icon = toolName ? TOOL_ICONS[toolName] || TOOL_ICONS.default : TOOL_ICONS.default;
+    
+    setEvents((prev) => [
+      ...prev,
+      {
+        id: eventIdRef.current++,
+        type,
+        toolName,
+        message,
+        timestamp: new Date(),
+        icon,
+        status,
+      },
+    ]);
 
-  const addEvent = (stage: string, message: string, progress: number, icon: React.ReactNode) => {
-    const newEvent: AnalysisEvent = {
-      id: eventIdRef.current++,
-      stage,
-      message,
-      progress,
-      timestamp: new Date(),
-      icon,
-      status: 'active'
-    };
+    // Auto-scroll to bottom
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    }, 100);
+  };
 
-    setEvents(prev => {
-      const updated = prev.map(e => ({ ...e, status: 'completed' as const }));
-      return [...updated, newEvent];
+  const updateLastEvent = (status: AnalysisEvent['status']) => {
+    setEvents((prev) => {
+      const updated = [...prev];
+      if (updated.length > 0) {
+        updated[updated.length - 1].status = status;
+      }
+      return updated;
     });
-    setCurrentProgress(progress);
   };
 
   const startAnalysis = async () => {
-    if (!repoUrl.trim()) return;
+    if (!repoUrl.trim()) {
+      alert('Please enter a repository URL');
+      return;
+    }
 
     setIsAnalyzing(true);
     setIsComplete(false);
-    setEvents([]);
     setCurrentProgress(0);
+    setEvents([]);
+    setAiResponse('');
     setVulnerabilityCount(0);
+    setConversationId(null);
     setReportData(null);
     eventIdRef.current = 1;
     startTimeRef.current = new Date();
@@ -127,67 +139,112 @@ export default function Analyze() {
       }
     }, 1000);
 
-    // Start generating report in background
-    setIsGeneratingReport(true);
-    const reportPromise = azureService.current.generateVulnerabilityReport(repoUrl);
+    try {
+      let progressStep = 0;
+      const totalSteps = 50; // Estimated total steps
 
-    // Process mock events sequentially
-    for (let i = 0; i < mockAnalysisSequence.length; i++) {
-      const event = mockAnalysisSequence[i];
-      
-      await new Promise(resolve => setTimeout(resolve, event.delay));
-      
-      addEvent(event.stage, event.message, event.progress, event.icon);
+      for await (const event of nodeBackendService.analyzeRepository(repoUrl)) {
+        progressStep++;
+        const progress = Math.min((progressStep / totalSteps) * 100, 95);
+        setCurrentProgress(progress);
 
-      // On completion
-      if (event.stage === 'completed') {
-        // Wait for report generation
-        try {
-          const report = await reportPromise;
-          setReportData(report);
-          setVulnerabilityCount(report.vulnerabilities.length);
-          setIsGeneratingReport(false);
-        } catch (error) {
-          console.error('Report generation error:', error);
-          setIsGeneratingReport(false);
-        }
-
-        setTimeout(() => {
-          setIsAnalyzing(false);
-          setIsComplete(true);
-          if (timerRef.current) {
-            clearInterval(timerRef.current);
+        if (event.type === 'session_created') {
+          setConversationId(event.data.conversationId);
+          addEvent('message', `Started conversation: ${event.data.conversationId}`, undefined, 'completed');
+        } else if (event.type === 'tool_start') {
+          addEvent('tool', `Executing: ${event.toolName}`, event.toolName, 'active');
+          console.log('Tool started:', event.toolName, event.toolInput);
+        } else if (event.type === 'tool_end') {
+          updateLastEvent('completed');
+          console.log('Tool completed:', event.toolName);
+        } else if (event.type === 'custom') {
+          addEvent('progress', event.content || 'Processing...', undefined, 'active');
+          updateLastEvent('completed');
+          
+          // Count vulnerabilities
+          if (event.content?.includes('CVE-') || event.content?.toLowerCase().includes('vulnerability')) {
+            setVulnerabilityCount((prev) => prev + 1);
           }
-        }, 500);
+        } else if (event.type === 'token') {
+          setAiResponse((prev) => prev + event.content);
+        } else if (event.type === 'error') {
+          addEvent('error', `Error: ${event.error}`, undefined, 'error');
+        } else if (event.type === 'done') {
+          setCurrentProgress(100);
+          setIsComplete(true);
+          addEvent('message', '✅ Analysis completed successfully!', undefined, 'completed');
+          
+          // Create report data from AI response
+          if (aiResponse) {
+            setReportData({
+              executiveSummary: aiResponse,
+              vulnerabilities: [],
+              remediationPriority: []
+            });
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error('Analysis error:', error);
+      addEvent('error', `Analysis failed: ${error.message}`, undefined, 'error');
+      setCurrentProgress(0);
+    } finally {
+      setIsAnalyzing(false);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
       }
     }
   };
 
+  const stopAnalysis = () => {
+    setIsAnalyzing(false);
+    addEvent('message', '⚠️ Analysis stopped by user', undefined, 'error');
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+  };
+
   const downloadReport = () => {
-    if (!reportData) return;
+    if (!aiResponse && !reportData) {
+      alert('No report data available');
+      return;
+    }
 
     try {
-      const generator = new VulnerabilityReportGenerator();
-      const pdfBlob = generator.generateReport({
-        repoUrl,
-        analysisDate: new Date().toLocaleString(),
-        analysisDuration: analysisTime,
-        vulnerabilities: reportData.vulnerabilities,
-        executiveSummary: reportData.executiveSummary,
-        remediationPriority: reportData.remediationPriority
-      });
+      // Create a text report
+      const reportText = `Security Analysis Report
+${'='.repeat(50)}
 
-      const url = URL.createObjectURL(pdfBlob);
+Repository: ${repoUrl}
+Analysis Date: ${new Date().toLocaleString()}
+Duration: ${analysisTime}s
+Vulnerabilities Found: ${vulnerabilityCount}
+
+${'='.repeat(50)}
+
+ANALYSIS SUMMARY
+${'-'.repeat(50)}
+
+${aiResponse || reportData?.executiveSummary || 'No summary available'}
+
+${'='.repeat(50)}
+
+Generated by Agent-Axios
+`;
+
+      const blob = new Blob([reportText], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       const repoName = repoUrl.split('/').pop()?.replace('.git', '') || 'repository';
-      link.download = `security-analysis-${repoName}-${Date.now()}.pdf`;
+      link.download = `security-analysis-${repoName}-${Date.now()}.txt`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Error generating PDF:', error);
+      console.error('Error generating report:', error);
+      alert('Failed to generate report');
     }
   };
 
@@ -200,7 +257,8 @@ export default function Analyze() {
     setVulnerabilityCount(0);
     setAnalysisTime(0);
     setReportData(null);
-    setIsGeneratingReport(false);
+    setAiResponse('');
+    setConversationId(null);
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
@@ -322,14 +380,24 @@ export default function Analyze() {
                     </div>
 
                     <Button
-                      onClick={startAnalysis}
-                      disabled={!repoUrl.trim()}
-                      className="w-full h-14 text-base font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/25 transition-all duration-300 hover:scale-[1.02]"
+                      onClick={isAnalyzing ? stopAnalysis : startAnalysis}
+                      disabled={!repoUrl.trim() && !isAnalyzing}
+                      className="w-full h-14 text-base font-semibold shadow-lg transition-all duration-300 hover:scale-[1.02]"
                       size="lg"
+                      variant={isAnalyzing ? 'destructive' : 'default'}
                     >
-                      <Sparkles className="mr-2 w-5 h-5" />
-                      Start Security Analysis
-                      <ArrowRight className="ml-2 w-5 h-5" />
+                      {isAnalyzing ? (
+                        <>
+                          <XCircle className="mr-2 w-5 h-5" />
+                          Stop Analysis
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="mr-2 w-5 h-5" />
+                          Start Security Analysis
+                          <ArrowRight className="ml-2 w-5 h-5" />
+                        </>
+                      )}
                     </Button>
                   </CardContent>
                 </Card>
@@ -464,24 +532,23 @@ export default function Analyze() {
                   </CardContent>
                 </Card>
 
-                {/* AI Status Card */}
-                {isGeneratingReport && (
+                {/* Conversation Info Card */}
+                {conversationId && (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                   >
-                    <Card className="shadow-xl border-2 border-yellow-500/20 bg-gradient-to-br from-yellow-500/10 to-orange-500/10">
+                    <Card className="shadow-xl border-2 border-blue-500/20 bg-gradient-to-br from-blue-500/10 to-purple-500/10">
                       <CardContent className="pt-6">
                         <div className="flex items-center gap-3">
                           <div className="relative">
-                            <Brain className="w-8 h-8 text-yellow-500 animate-pulse" />
-                            <Sparkles className="w-4 h-4 text-yellow-400 absolute -top-1 -right-1" />
+                            <Activity className="w-8 h-8 text-blue-500 animate-pulse" />
+                            <Sparkles className="w-4 h-4 text-blue-400 absolute -top-1 -right-1" />
                           </div>
                           <div className="flex-1">
-                            <p className="font-semibold text-yellow-600 dark:text-yellow-400">AI Agent Active</p>
-                            <p className="text-sm text-muted-foreground">Generating security report...</p>
+                            <p className="font-semibold text-blue-600 dark:text-blue-400">Live Session Active</p>
+                            <p className="text-xs text-muted-foreground truncate">{conversationId}</p>
                           </div>
-                          <Loader2 className="w-5 h-5 text-yellow-500 animate-spin" />
                         </div>
                       </CardContent>
                     </Card>
@@ -500,7 +567,10 @@ export default function Analyze() {
                     Real-time security analysis events and findings
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="flex-1 overflow-y-auto pt-6">
+                <CardContent 
+                  ref={scrollRef}
+                  className="flex-1 overflow-y-auto pt-6 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
+                >
                   <div className="space-y-3">
                     <AnimatePresence>
                       {events.map((event, index) => (
@@ -540,10 +610,12 @@ export default function Analyze() {
                             </div>
                             <div className="flex items-center gap-3 text-xs text-muted-foreground">
                               <span className="font-mono">{event.timestamp.toLocaleTimeString()}</span>
-                              <span>•</span>
-                              <span className="capitalize">{event.stage.replace(/_/g, ' ')}</span>
-                              <span>•</span>
-                              <span>{event.progress}%</span>
+                              {event.toolName && (
+                                <>
+                                  <span>•</span>
+                                  <span className="capitalize">{event.toolName.replace(/_/g, ' ')}</span>
+                                </>
+                              )}
                             </div>
                           </div>
                         </motion.div>
@@ -632,11 +704,11 @@ export default function Analyze() {
                         <div className="space-y-3 pt-4">
                           <Button
                             onClick={downloadReport}
-                            disabled={!reportData || isGeneratingReport}
+                            disabled={!aiResponse && !reportData}
                             className="w-full h-14 text-base font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
                             size="lg"
                           >
-                            {isGeneratingReport ? (
+                            {!aiResponse && !reportData ? (
                               <>
                                 <Loader2 className="mr-2 w-5 h-5 animate-spin" />
                                 Generating Report...
@@ -644,7 +716,7 @@ export default function Analyze() {
                             ) : (
                               <>
                                 <Download className="mr-2 w-5 h-5" />
-                                Download Full Security Report
+                                Download Analysis Report (.txt)
                                 <FileText className="ml-2 w-5 h-5" />
                               </>
                             )}
@@ -724,6 +796,31 @@ export default function Analyze() {
                   )}
                 </div>
               </div>
+
+              {/* AI Response Section */}
+              {aiResponse && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-6"
+                >
+                  <Card className="shadow-xl">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Brain className="w-5 h-5 text-primary" />
+                        AI Analysis Summary
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="prose prose-sm max-w-none dark:prose-invert">
+                        <pre className="whitespace-pre-wrap text-sm bg-muted p-4 rounded-lg overflow-x-auto">
+                          {aiResponse}
+                        </pre>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
