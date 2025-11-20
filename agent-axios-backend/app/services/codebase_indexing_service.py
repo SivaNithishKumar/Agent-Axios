@@ -1,4 +1,4 @@
-"""Codebase indexing service using FAISS for semantic code search."""
+"""Codebase indexing service using FAISS for semantic code search with intelligent caching."""
 import os
 import pickle
 import numpy as np
@@ -13,17 +13,32 @@ logger = logging.getLogger(__name__)
 
 
 class CodebaseIndexingService:
-    """Handles FAISS indexing and searching of codebase chunks."""
+    """Handles FAISS indexing and searching of codebase chunks with caching support."""
     
     BATCH_SIZE = 10
     
-    def __init__(self, index_path: str = None):
-        self.cohere_embedding = CohereEmbeddingService()
+    def __init__(self, index_path: str = None, repo_url: str = None, repo_path: str = None):
+        self.cohere_embedding = CohereEmbeddingService(use_cache=True)  # Enable caching
         self.dimension = self.cohere_embedding.dimensions  # 1024
         self.index = None
         self.metadata = []  # Store chunk metadata
-        self.index_path = index_path or "data/faiss_indexes/codebase_index.faiss"
-        self.metadata_path = self.index_path.replace('.faiss', '_metadata.pkl')
+        self.repo_url = repo_url
+        self.repo_path = repo_path
+        
+        # Use smart caching if repo info provided
+        if repo_url and repo_path:
+            from app.services.caching_service import get_cache_manager
+            cache_manager = get_cache_manager()
+            self.index_path, self.metadata_path, self.index_exists = cache_manager.index_cache.get_index_path(
+                repo_url, repo_path
+            )
+            
+            if self.index_exists:
+                logger.info(f"Reusable index found at {self.index_path}")
+        else:
+            self.index_path = index_path or "data/faiss_indexes/codebase_index.faiss"
+            self.metadata_path = self.index_path.replace('.faiss', '_metadata.pkl')
+            self.index_exists = os.path.exists(self.index_path) and os.path.exists(self.metadata_path)
         
         logger.info(f"Initialized CodebaseIndexingService with {self.dimension}-dim vectors")
     
@@ -31,18 +46,31 @@ class CodebaseIndexingService:
     def index_chunks(
         self,
         chunks: List[CodeChunk],
-        progress_callback: Optional[Callable[[int, int], None]] = None
+        progress_callback: Optional[Callable[[int, int], None]] = None,
+        force_reindex: bool = False
     ):
         """
-        Create FAISS index from code chunks.
+        Create FAISS index from code chunks with smart caching.
         
         Args:
             chunks: List of CodeChunk objects to index
             progress_callback: Optional progress callback (current, total)
+            force_reindex: Force reindexing even if cache exists
         """
         if not chunks:
             logger.warning("No chunks provided for indexing")
             return
+        
+        # Try to load existing index if not forcing reindex
+        if not force_reindex and hasattr(self, 'index_exists') and self.index_exists:
+            logger.info("Attempting to load existing index from cache...")
+            if self.load_index():
+                logger.info(f"✓ Successfully loaded cached index with {self.index.ntotal} vectors - skipping reindexing")
+                if progress_callback:
+                    progress_callback(len(chunks), len(chunks))
+                return
+            else:
+                logger.warning("Failed to load cached index, proceeding with reindexing")
         
         total = len(chunks)
         logger.info(f"Indexing {total} chunks into FAISS")

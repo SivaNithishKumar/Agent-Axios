@@ -37,11 +37,38 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
       });
 
       if (response.success && response.data) {
-        setNotifications(response.data.notifications);
-        setUnreadCount(response.data.unreadCount);
-        if (response.data.pagination) {
-          setPagination(response.data.pagination);
-        }
+        const mapped = (response.data.notifications || []).map((notif: any): Notification => {
+          const metadata = (() => {
+            if (!notif.metadata) return undefined;
+            if (typeof notif.metadata === 'string') {
+              try {
+                return JSON.parse(notif.metadata);
+              } catch (error) {
+                console.warn('Failed to parse notification metadata', error);
+                return undefined;
+              }
+            }
+            return notif.metadata;
+          })();
+
+          return {
+            id: String(notif.notification_id ?? notif.id ?? Date.now()),
+            type: notif.type,
+            title: notif.title,
+            message: notif.message,
+            read: Boolean(notif.is_read),
+            data: metadata,
+            createdAt: notif.created_at ?? new Date().toISOString(),
+          };
+        });
+
+        setNotifications(mapped);
+        setUnreadCount(response.data.unread_count ?? 0);
+        setPagination({
+          currentPage: response.data.page ?? 1,
+          totalPages: response.data.pages ?? 1,
+          totalItems: response.data.total ?? mapped.length,
+        });
       }
     } catch (error: any) {
       console.error('Failed to load notifications:', error);

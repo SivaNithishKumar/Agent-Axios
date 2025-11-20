@@ -7,6 +7,7 @@ import {
   deleteRepository,
   triggerScan,
   type Repository,
+  type AnalysisType,
 } from '@/services/api';
 import { toast } from 'sonner';
 
@@ -36,6 +37,49 @@ export function useRepositories(options: UseRepositoriesOptions = {}) {
     totalVulnerabilities: 0,
   });
 
+  const mapRepository = useCallback((repo: any): Repository => {
+    const metadata = (() => {
+      if (!repo?.repo_metadata) return {};
+      if (typeof repo.repo_metadata === 'string') {
+        try {
+          return JSON.parse(repo.repo_metadata);
+        } catch (error) {
+          console.warn('Failed to parse repo metadata', error);
+          return {};
+        }
+      }
+      return repo.repo_metadata;
+    })();
+
+    return {
+    id: String(repo.repo_id ?? repo.id ?? Date.now()),
+    name: repo.name,
+    fullName: repo.name,
+    url: repo.url,
+    description: repo.description,
+    language: repo.language,
+      defaultBranch: metadata?.default_branch ?? 'main',
+      branches: metadata?.branches ?? 1,
+    stars: repo.stars ?? 0,
+      forks: metadata?.forks ?? 0,
+    lastScan: repo.last_scan_at,
+    nextScan: undefined,
+    starred: Boolean(repo.is_starred),
+    status: repo.last_scan_status ?? 'pending',
+    vulnerabilities: {
+      critical: repo.critical_count ?? 0,
+      high: repo.high_count ?? 0,
+      medium: repo.medium_count ?? 0,
+      low: repo.low_count ?? 0,
+      total: repo.vulnerability_count ?? 0,
+    },
+      scanFrequency: metadata?.scan_frequency ?? 'weekly',
+      autoScan: metadata?.auto_scan ?? false,
+    createdAt: repo.created_at ?? new Date().toISOString(),
+    updatedAt: repo.updated_at ?? new Date().toISOString(),
+    };
+  }, []);
+
   const loadRepositories = useCallback(async (params?: UseRepositoriesOptions) => {
     setIsLoading(true);
     try {
@@ -48,9 +92,21 @@ export function useRepositories(options: UseRepositoriesOptions = {}) {
       });
 
       if (response.success && response.data) {
-        setRepositories(response.data.repositories);
-        setPagination(response.data.pagination);
-        setStats(response.data.stats);
+        const mapped = (response.data.repositories || []).map(mapRepository);
+        setRepositories(mapped);
+        setPagination({
+          currentPage: response.data.page,
+          totalPages: response.data.pages,
+          totalItems: response.data.total,
+          itemsPerPage: response.data.per_page,
+        });
+        setStats({
+          total: mapped.length,
+          healthy: mapped.filter(r => r.status === 'healthy').length,
+          warning: mapped.filter(r => r.status === 'warning').length,
+          critical: mapped.filter(r => r.status === 'critical').length,
+          totalVulnerabilities: mapped.reduce((sum, r) => sum + (r.vulnerabilities?.total ?? 0), 0),
+        });
       }
     } catch (error: any) {
       console.error('Failed to load repositories:', error);
@@ -67,7 +123,7 @@ export function useRepositories(options: UseRepositoriesOptions = {}) {
     try {
       const response = await getRepository(id);
       if (response.success && response.data) {
-        return response.data;
+        return mapRepository(response.data);
       }
     } catch (error: any) {
       console.error('Failed to load repository:', error);
@@ -81,9 +137,11 @@ export function useRepositories(options: UseRepositoriesOptions = {}) {
   }, []);
 
   const addNewRepository = useCallback(async (data: {
+    name: string;
     url: string;
-    autoScan?: boolean;
-    scanFrequency?: 'daily' | 'weekly' | 'monthly';
+    description?: string;
+    language?: string;
+    framework?: string;
   }) => {
     setIsLoading(true);
     try {
@@ -92,11 +150,10 @@ export function useRepositories(options: UseRepositoriesOptions = {}) {
         toast.success('Repository added successfully', {
           description: `${response.data.name} has been added to your repositories`,
         });
-        
         // Reload repositories
         await loadRepositories();
         
-        return response.data;
+        return mapRepository(response.data);
       }
     } catch (error: any) {
       console.error('Failed to add repository:', error);
@@ -117,10 +174,10 @@ export function useRepositories(options: UseRepositoriesOptions = {}) {
         
         // Update local state
         setRepositories(prev => 
-          prev.map(repo => repo.id === id ? { ...repo, ...response.data } : repo)
+          prev.map(repo => repo.id === id ? mapRepository(response.data) : repo)
         );
         
-        return response.data;
+        return mapRepository(response.data);
       }
     } catch (error: any) {
       console.error('Failed to update repository:', error);
@@ -153,13 +210,13 @@ export function useRepositories(options: UseRepositoriesOptions = {}) {
 
   const startScan = useCallback(async (
     repositoryId: string, 
-    options?: { branch?: string; fullScan?: boolean }
+    options?: { branch?: string; fullScan?: boolean; analysisType?: AnalysisType }
   ) => {
     try {
       const response = await triggerScan(repositoryId, options);
       if (response.success && response.data) {
         toast.success('Scan started successfully', {
-          description: `Scan queued at position ${response.data.queuePosition}`,
+          description: `Analysis ${response.data.analysis_id} is ${response.data.status}`,
         });
         
         return response.data;

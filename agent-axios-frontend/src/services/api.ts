@@ -1,13 +1,9 @@
 /**
- * API Service for Agent Axios Backend Integration
- * Base URL: http://140.238.227.29:5000
+ * API Service for Agent Axios
+ * Comprehensive security analysis platform with advanced AI-powered vulnerability detection
  */
 
-import io, { Socket } from 'socket.io-client';
-
-// Configuration
-const API_BASE_URL = 'http://localhost:5000';
-const WS_URL = 'http://localhost:5000';
+import { mockDataStore } from './mockData';
 
 // Authentication Token Management
 let authToken: string | null = localStorage.getItem('auth_token');
@@ -25,25 +21,16 @@ export function getAuthToken(): string | null {
   return authToken;
 }
 
-function getAuthHeaders(): HeadersInit {
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
-  
-  if (authToken) {
-    headers['Authorization'] = `Bearer ${authToken}`;
-  }
-  
-  return headers;
-}
+// Simulate network delay for realistic UX
+const delay = (ms: number = 300) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Types
+// ============================================================================
+// TYPES
+// ============================================================================
+
 export type AnalysisType = 'SHORT' | 'MEDIUM' | 'HARD';
-
 export type AnalysisStatus = 'pending' | 'running' | 'completed' | 'failed';
-
 export type ValidationStatus = 'pending' | 'confirmed' | 'false_positive' | 'needs_review';
-
 export type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
 
 export interface Analysis {
@@ -131,7 +118,6 @@ export interface AnalysisComplete {
   timestamp: string;
 }
 
-// Authentication Types
 export interface User {
   id: string;
   email: string;
@@ -170,7 +156,6 @@ export interface RegisterRequest {
   company?: string;
 }
 
-// Repository Types
 export interface Repository {
   id: string;
   name: string;
@@ -199,17 +184,7 @@ export interface Repository {
   updatedAt: string;
 }
 
-// Report Types
-export interface ReportVulnerabilitiesDetail {
-  cveId: string;
-  severity: Severity;
-  title: string;
-  description: string;
-  affectedFile: string;
-  recommendedFix: string;
-}
-
-export interface Report {
+export interface ScanHistory {
   analysis_id: number;
   repo_id: number;
   status: AnalysisStatus;
@@ -225,7 +200,6 @@ export interface Report {
     name: string;
     language: string;
   };
-  // Computed fields for display
   vulnerabilities?: {
     critical: number;
     high: number;
@@ -235,7 +209,6 @@ export interface Report {
   };
 }
 
-// Chat Types
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -259,7 +232,6 @@ export interface SendMessageRequest {
   };
 }
 
-// Notification Types
 export interface Notification {
   id: string;
   type: 'scan_complete' | 'vulnerability_found' | 'system' | 'info';
@@ -270,7 +242,6 @@ export interface Notification {
   createdAt: string;
 }
 
-// Settings Types
 export interface UserSettings {
   notifications: {
     email: {
@@ -300,7 +271,6 @@ export interface UserSettings {
   };
 }
 
-// API Response Types
 export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
@@ -313,754 +283,967 @@ export interface ApiResponse<T = any> {
   message?: string;
 }
 
-// API Functions
+// ============================================================================
+// AUTHENTICATION API
+// ============================================================================
 
-/**
- * Health Check - Test backend connection
- */
-export async function healthCheck(): Promise<{ status: string; timestamp: string }> {
-  const response = await fetch(`${API_BASE_URL}/api/health`);
-  if (!response.ok) {
-    throw new Error('Health check failed');
+export async function login(credentials: LoginRequest): Promise<AuthResponse> {
+  await delay(500);
+  
+  const user = mockDataStore.login(credentials.email, credentials.password);
+  
+  if (!user) {
+    throw new Error('Invalid credentials');
   }
-  return response.json();
+
+  const token = `mock_token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  setAuthToken(token);
+
+  return {
+    success: true,
+    data: {
+      user,
+      token: {
+        accessToken: token,
+        refreshToken: `refresh_${token}`,
+        expiresIn: 3600,
+        tokenType: 'Bearer',
+      },
+    },
+  };
 }
 
-/**
- * Create Analysis - Start a new repository analysis
- */
+export async function register(userData: RegisterRequest): Promise<AuthResponse> {
+  await delay(600);
+
+  const user = mockDataStore.register(
+    userData.email,
+    userData.password,
+    userData.firstName,
+    userData.lastName,
+    userData.company
+  );
+
+  const token = `mock_token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  setAuthToken(token);
+
+  return {
+    success: true,
+    data: {
+      user,
+      token: {
+        accessToken: token,
+        refreshToken: `refresh_${token}`,
+        expiresIn: 3600,
+        tokenType: 'Bearer',
+      },
+    },
+  };
+}
+
+export async function logout(refreshToken: string): Promise<ApiResponse> {
+  await delay(200);
+  mockDataStore.logout();
+  setAuthToken(null);
+
+  return {
+    success: true,
+    message: 'Logged out successfully',
+  };
+}
+
+export async function getUserProfile(): Promise<ApiResponse<User>> {
+  await delay(300);
+
+  if (!authToken) {
+    throw new Error('Not authenticated');
+  }
+
+  const user = mockDataStore.getCurrentUser();
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  return {
+    success: true,
+    data: user,
+  };
+}
+
+export async function refreshToken(refreshToken: string): Promise<ApiResponse> {
+  await delay(400);
+
+  const token = `mock_token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  setAuthToken(token);
+
+  return {
+    success: true,
+    data: {
+      accessToken: token,
+      refreshToken: `refresh_${token}`,
+      expiresIn: 3600,
+      tokenType: 'Bearer',
+    },
+  };
+}
+
+export async function requestPasswordReset(email: string): Promise<ApiResponse> {
+  await delay(500);
+
+  return {
+    success: true,
+    message: 'Password reset email sent',
+  };
+}
+
+export async function confirmPasswordReset(
+  token: string,
+  newPassword: string
+): Promise<ApiResponse> {
+  await delay(500);
+
+  return {
+    success: true,
+    message: 'Password reset successfully',
+  };
+}
+
+export async function updateUserProfile(updates: Partial<User>): Promise<ApiResponse<User>> {
+  await delay(400);
+
+  const user = mockDataStore.getCurrentUser();
+  if (!user) {
+    throw new Error('Not authenticated');
+  }
+
+  const updatedUser = { ...user, ...updates, updatedAt: new Date().toISOString() };
+
+  return {
+    success: true,
+    data: updatedUser,
+  };
+}
+
+// ============================================================================
+// REPOSITORY API
+// ============================================================================
+
+export async function getRepositories(params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+  sort?: string;
+}): Promise<ApiResponse<{ repositories: Repository[]; total: number; page: number; limit: number }>> {
+  await delay(400);
+
+  const repositories = mockDataStore.getRepositories();
+
+  return {
+    success: true,
+    data: {
+      repositories,
+      total: repositories.length,
+      page: params?.page || 1,
+      limit: params?.limit || 20,
+    },
+  };
+}
+
+export async function getRepository(id: string): Promise<ApiResponse<Repository>> {
+  await delay(300);
+
+  const repository = mockDataStore.getRepository(id);
+
+  if (!repository) {
+    throw new Error('Repository not found');
+  }
+
+  return {
+    success: true,
+    data: repository,
+  };
+}
+
+export async function addRepository(data: {
+  url: string;
+  scanFrequency?: 'daily' | 'weekly' | 'monthly';
+  autoScan?: boolean;
+}): Promise<ApiResponse<Repository>> {
+  await delay(600);
+
+  const repository = mockDataStore.addRepository(data.url);
+
+  if (data.scanFrequency) repository.scanFrequency = data.scanFrequency;
+  if (data.autoScan !== undefined) repository.autoScan = data.autoScan;
+
+  return {
+    success: true,
+    data: repository,
+  };
+}
+
+export async function updateRepository(
+  id: string,
+  updates: Partial<Repository>
+): Promise<ApiResponse<Repository>> {
+  await delay(400);
+
+  const repository = mockDataStore.updateRepository(id, updates);
+
+  if (!repository) {
+    throw new Error('Repository not found');
+  }
+
+  return {
+    success: true,
+    data: repository,
+  };
+}
+
+export async function deleteRepository(id: string): Promise<ApiResponse> {
+  await delay(400);
+
+  const success = mockDataStore.deleteRepository(id);
+
+  if (!success) {
+    throw new Error('Repository not found');
+  }
+
+  return {
+    success: true,
+    message: 'Repository deleted successfully',
+  };
+}
+
+export async function toggleRepositoryStar(id: string): Promise<ApiResponse<Repository>> {
+  await delay(300);
+
+  const repository = mockDataStore.getRepository(id);
+
+  if (!repository) {
+    throw new Error('Repository not found');
+  }
+
+  const updated = mockDataStore.updateRepository(id, { starred: !repository.starred });
+
+  return {
+    success: true,
+    data: updated!,
+  };
+}
+
+export async function scanRepository(
+  id: string,
+  analysisType: AnalysisType = 'MEDIUM'
+): Promise<ApiResponse<{ analysis_id: number }>> {
+  await delay(500);
+
+  const repository = mockDataStore.getRepository(id);
+
+  if (!repository) {
+    throw new Error('Repository not found');
+  }
+
+  const analysis = mockDataStore.createAnalysis(repository.url, analysisType, false);
+
+  // Simulate analysis progress
+  simulateAnalysisProgress(analysis.analysis_id);
+
+  return {
+    success: true,
+    data: { analysis_id: analysis.analysis_id },
+  };
+}
+
+// ============================================================================
+// ANALYSIS API
+// ============================================================================
+
 export async function createAnalysis(
   repoUrl: string,
   analysisType: AnalysisType,
   config?: Record<string, any>
 ): Promise<Analysis> {
-  const response = await fetch(`${API_BASE_URL}/api/analysis`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      repo_url: repoUrl,
-      analysis_type: analysisType,
-      ...(config && { config }),
-    }),
+  await delay(500);
+
+  const analysis = mockDataStore.createAnalysis(repoUrl, analysisType, false);
+
+  // Simulate analysis progress
+  simulateAnalysisProgress(analysis.analysis_id);
+
+  return analysis;
+}
+
+export async function getAnalysis(analysisId: number): Promise<Analysis> {
+  await delay(300);
+
+  const analysis = mockDataStore.getAnalysis(analysisId);
+
+  if (!analysis) {
+    throw new Error('Analysis not found');
+  }
+
+  return analysis;
+}
+
+export async function getAnalysisResults(analysisId: number): Promise<AnalysisResults> {
+  await delay(400);
+
+  const analysis = mockDataStore.getAnalysis(analysisId);
+
+  if (!analysis) {
+    throw new Error('Analysis not found');
+  }
+
+  const findings = mockDataStore.getFindings(analysisId);
+
+  const severityBreakdown = findings.reduce((acc, f) => {
+    acc[f.severity] = (acc[f.severity] || 0) + 1;
+    return acc;
+  }, {} as Record<Severity, number>);
+
+  // Ensure all severities are present
+  ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].forEach(sev => {
+    if (!severityBreakdown[sev as Severity]) {
+      severityBreakdown[sev as Severity] = 0;
+    }
   });
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to create analysis');
-  }
-
-  return response.json();
+  return {
+    analysis,
+    summary: {
+      total_files: analysis.total_files,
+      total_chunks: analysis.total_chunks,
+      total_findings: findings.length,
+      confirmed_vulnerabilities: findings.filter(f => f.validation_status === 'confirmed').length,
+      false_positives: findings.filter(f => f.validation_status === 'false_positive').length,
+      severity_breakdown: severityBreakdown,
+    },
+    findings,
+  };
 }
 
-/**
- * Get Analysis - Fetch analysis status by ID
- */
-export async function getAnalysis(analysisId: number): Promise<Analysis> {
-  const response = await fetch(`${API_BASE_URL}/api/analysis/${analysisId}`);
-  
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to fetch analysis');
-  }
-
-  return response.json();
-}
-
-/**
- * Get Analysis Results - Fetch detailed results after completion
- */
-export async function getAnalysisResults(analysisId: number): Promise<AnalysisResults> {
-  const response = await fetch(`${API_BASE_URL}/api/analysis/${analysisId}/results`);
-  
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to fetch results');
-  }
-
-  return response.json();
-}
-
-/**
- * List Analyses - Get all analyses with pagination
- */
 export async function listAnalyses(
   page: number = 1,
   perPage: number = 20,
   status?: AnalysisStatus
 ): Promise<AnalysesList> {
-  const params = new URLSearchParams({
-    page: page.toString(),
-    per_page: perPage.toString(),
-    ...(status && { status }),
-  });
+  await delay(400);
 
-  const response = await fetch(`${API_BASE_URL}/api/analyses?${params}`);
-  
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to list analyses');
+  let analyses = mockDataStore.getAnalyses();
+
+  if (status) {
+    analyses = analyses.filter(a => a.status === status);
   }
 
-  return response.json();
+  const total = analyses.length;
+  const pages = Math.ceil(total / perPage);
+  const start = (page - 1) * perPage;
+  const end = start + perPage;
+
+  return {
+    analyses: analyses.slice(start, end).map(a => ({
+      analysis_id: a.analysis_id,
+      repo_url: a.repo_url,
+      analysis_type: a.analysis_type,
+      status: a.status,
+      created_at: a.created_at,
+    })),
+    total,
+    page,
+    per_page: perPage,
+    pages,
+  };
+}
+
+export async function updateFindingValidation(
+  findingId: number,
+  status: ValidationStatus,
+  explanation?: string
+): Promise<ApiResponse<CVEFinding>> {
+  await delay(300);
+
+  const finding = mockDataStore.updateFindingValidation(findingId, status, explanation);
+
+  if (!finding) {
+    throw new Error('Finding not found');
+  }
+
+  return {
+    success: true,
+    data: finding,
+  };
 }
 
 // ============================================================================
-// AUTHENTICATION ENDPOINTS
+// CHAT API
 // ============================================================================
 
-/**
- * User Login
- */
-export async function login(credentials: LoginRequest): Promise<AuthResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(credentials),
-  });
+export async function sendChatMessage(
+  analysisId: number,
+  message: string
+): Promise<ApiResponse<{ userMessage: ChatMessage; assistantMessage: ChatMessage }>> {
+  await delay(800); // Simulate AI processing time
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Login failed');
-  }
-
-  const backendData = await response.json();
+  const userMessage = mockDataStore.addChatMessage(analysisId, message, 'user');
   
-  // Store token
-  if (backendData.access_token) {
-    setAuthToken(backendData.access_token);
-  }
+  // Generate AI response
+  const response = mockDataStore.generateAIResponse(analysisId, message);
+  const assistantMessage = mockDataStore.addChatMessage(analysisId, response, 'assistant');
 
-  // Transform backend response to frontend format
-  const data: AuthResponse = {
+  return {
     success: true,
     data: {
-      user: {
-        id: backendData.user.user_id,
-        email: backendData.user.email,
-        firstName: backendData.user.first_name,
-        lastName: backendData.user.last_name,
-        company: backendData.user.company,
-        avatar: backendData.user.avatar_url,
-        role: backendData.user.role,
-        createdAt: backendData.user.created_at,
-        updatedAt: backendData.user.updated_at,
-      },
-      token: {
-        accessToken: backendData.access_token,
-        refreshToken: '', // Not provided by backend
-        expiresIn: 86400, // 24 hours
-        tokenType: 'Bearer',
-      }
-    }
+      userMessage,
+      assistantMessage,
+    },
   };
-
-  return data;
 }
 
-/**
- * User Registration
- */
-export async function register(userData: RegisterRequest): Promise<AuthResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(userData),
-  });
+export async function getChatHistory(analysisId: number): Promise<ApiResponse<ChatMessage[]>> {
+  await delay(300);
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Registration failed');
-  }
+  const messages = mockDataStore.getChatMessages(analysisId);
 
-  const backendData = await response.json();
-  
-  // Store token
-  if (backendData.access_token) {
-    setAuthToken(backendData.access_token);
-  }
-
-  // Transform backend response to frontend format
-  const data: AuthResponse = {
+  return {
     success: true,
-    data: {
-      user: {
-        id: backendData.user.user_id,
-        email: backendData.user.email,
-        firstName: backendData.user.first_name,
-        lastName: backendData.user.last_name,
-        company: backendData.user.company,
-        avatar: backendData.user.avatar_url,
-        role: backendData.user.role,
-        createdAt: backendData.user.created_at,
-        updatedAt: backendData.user.updated_at,
-      },
-      token: {
-        accessToken: backendData.access_token,
-        refreshToken: '', // Not provided by backend
-        expiresIn: 86400, // 24 hours
-        tokenType: 'Bearer',
-      }
-    }
+    data: messages,
   };
-
-  return data;
-}
-
-/**
- * Refresh Access Token
- */
-export async function refreshToken(refreshToken: string): Promise<ApiResponse<{
-  accessToken: string;
-  expiresIn: number;
-  tokenType: string;
-}>> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ refreshToken }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'Token refresh failed');
-  }
-
-  const data = await response.json();
-  
-  // Update token
-  if (data.success && data.data.accessToken) {
-    setAuthToken(data.data.accessToken);
-  }
-
-  return data;
-}
-
-/**
- * User Logout
- */
-export async function logout(refreshToken: string): Promise<ApiResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify({ refreshToken }),
-  });
-
-  // Clear token regardless of response
-  setAuthToken(null);
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'Logout failed');
-  }
-
-  return response.json();
-}
-
-/**
- * Request Password Reset
- */
-export async function requestPasswordReset(email: string): Promise<ApiResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/password-reset/request`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ email }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'Password reset request failed');
-  }
-
-  return response.json();
-}
-
-/**
- * Confirm Password Reset
- */
-export async function confirmPasswordReset(token: string, newPassword: string): Promise<ApiResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/password-reset/confirm`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ token, newPassword }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'Password reset failed');
-  }
-
-  return response.json();
 }
 
 // ============================================================================
-// REPOSITORY ENDPOINTS
+// DASHBOARD & STATISTICS API
 // ============================================================================
 
-/**
- * Get All Repositories
- */
-export async function getRepositories(params?: {
+export async function getDashboardStats(): Promise<ApiResponse<any>> {
+  await delay(400);
+
+  const stats = mockDataStore.getDashboardStats();
+
+  return {
+    success: true,
+    data: stats,
+  };
+}
+
+export async function getScanHistory(params?: {
   page?: number;
   limit?: number;
-  search?: string;
-  status?: 'healthy' | 'warning' | 'critical';
-  starred?: boolean;
-}): Promise<ApiResponse<{
-  repositories: Repository[];
-  pagination: {
-    currentPage: number;
-    totalPages: number;
-    totalItems: number;
-    itemsPerPage: number;
-    hasNextPage: boolean;
-    hasPreviousPage: boolean;
-  };
-  stats: {
-    total: number;
-    healthy: number;
-    warning: number;
-    critical: number;
-    totalVulnerabilities: number;
-  };
-}>> {
-  const searchParams = new URLSearchParams();
-  if (params?.page) searchParams.append('page', params.page.toString());
-  if (params?.limit) searchParams.append('limit', params.limit.toString());
-  if (params?.search) searchParams.append('search', params.search);
-  if (params?.status) searchParams.append('status', params.status);
-  if (params?.starred !== undefined) searchParams.append('starred', params.starred.toString());
+  repositoryId?: string;
+}): Promise<ApiResponse<{ scans: ScanHistory[]; total: number }>> {
+  await delay(400);
 
-  const response = await fetch(`${API_BASE_URL}/api/repositories?${searchParams}`, {
-    headers: getAuthHeaders(),
-  });
+  const analyses = mockDataStore.getAnalyses();
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'Failed to fetch repositories');
-  }
-
-  return response.json();
-}
-
-/**
- * Get Repository by ID
- */
-export async function getRepository(id: string): Promise<ApiResponse<Repository>> {
-  const response = await fetch(`${API_BASE_URL}/api/repositories/${id}`, {
-    headers: getAuthHeaders(),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'Failed to fetch repository');
-  }
-
-  return response.json();
-}
-
-/**
- * Add New Repository
- */
-export async function addRepository(data: {
-  url: string;
-  autoScan?: boolean;
-  scanFrequency?: 'daily' | 'weekly' | 'monthly';
-}): Promise<ApiResponse<Repository>> {
-  const response = await fetch(`${API_BASE_URL}/api/repositories`, {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify(data),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'Failed to add repository');
-  }
-
-  return response.json();
-}
-
-/**
- * Update Repository
- */
-export async function updateRepository(id: string, data: Partial<Repository>): Promise<ApiResponse<Repository>> {
-  const response = await fetch(`${API_BASE_URL}/api/repositories/${id}`, {
-    method: 'PATCH',
-    headers: getAuthHeaders(),
-    body: JSON.stringify(data),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'Failed to update repository');
-  }
-
-  return response.json();
-}
-
-/**
- * Delete Repository
- */
-export async function deleteRepository(id: string): Promise<ApiResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/repositories/${id}`, {
-    method: 'DELETE',
-    headers: getAuthHeaders(),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'Failed to delete repository');
-  }
-
-  return response.json();
-}
-
-/**
- * Trigger Manual Scan
- */
-export async function triggerScan(repositoryId: string, data?: {
-  branch?: string;
-  fullScan?: boolean;
-}): Promise<ApiResponse<{
-  scanId: string;
-  repositoryId: string;
-  status: string;
-  estimatedDuration: number;
-  queuePosition: number;
-  startedAt: string | null;
-}>> {
-  const response = await fetch(`${API_BASE_URL}/api/repositories/${repositoryId}/scan`, {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify(data || {}),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'Failed to trigger scan');
-  }
-
-  return response.json();
-}
-
-/**
- * Get Scan Status
- */
-export async function getScanStatus(repositoryId: string, scanId: string): Promise<ApiResponse<{
-  scanId: string;
-  repositoryId: string;
-  status: string;
-  progress: {
-    percentage: number;
-    currentStep: string;
-    stepsCompleted: string[];
-    stepsRemaining: string[];
-  };
-  startedAt: string;
-  estimatedCompletion: string;
-}>> {
-  const response = await fetch(`${API_BASE_URL}/api/repositories/${repositoryId}/scan/${scanId}`, {
-    headers: getAuthHeaders(),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'Failed to fetch scan status');
-  }
-
-  return response.json();
-}
-
-// ============================================================================
-// CHAT / AI ASSISTANT ENDPOINTS
-// ============================================================================
-
-/**
- * Send Chat Message
- */
-export async function sendChatMessage(data: SendMessageRequest): Promise<ApiResponse<{
-  messageId: string;
-  response: string;
-  suggestions: string[];
-}>> {
-  const response = await fetch(`${API_BASE_URL}/api/chat/message`, {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify(data),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'Failed to send message');
-  }
-
-  return response.json();
-}
-
-/**
- * Get Chat History
- */
-export async function getChatHistory(sessionId: string): Promise<ApiResponse<ChatSession>> {
-  const response = await fetch(`${API_BASE_URL}/api/chat/sessions/${sessionId}/messages`, {
-    headers: getAuthHeaders(),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'Failed to fetch chat history');
-  }
-
-  return response.json();
-}
-
-/**
- * Stream Chat Response (SSE)
- */
-export function streamChatResponse(sessionId: string, onMessage: (data: any) => void, onError?: (error: Error) => void): EventSource {
-  const eventSource = new EventSource(
-  `${API_BASE_URL}/api/chat/stream/${sessionId}`,
-    // Note: EventSource doesn't support custom headers, use query param for auth
-  );
-
-  eventSource.addEventListener('message', (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      onMessage(data);
-    } catch (error) {
-      console.error('Failed to parse SSE message:', error);
-    }
-  });
-
-  eventSource.addEventListener('progress', (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      onMessage({ type: 'progress', ...data });
-    } catch (error) {
-      console.error('Failed to parse progress event:', error);
-    }
-  });
-
-  eventSource.addEventListener('complete', (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      onMessage({ type: 'complete', ...data });
-      eventSource.close();
-    } catch (error) {
-      console.error('Failed to parse complete event:', error);
-    }
-  });
-
-  eventSource.onerror = (error) => {
-    console.error('SSE error:', error);
-    onError?.(new Error('Connection error'));
-    eventSource.close();
-  };
-
-  return eventSource;
-}
-
-// ============================================================================
-// USER PROFILE & SETTINGS ENDPOINTS
-// ============================================================================
-
-/**
- * Get User Profile
- */
-export async function getUserProfile(): Promise<ApiResponse<User>> {
-  const response = await fetch(`${API_BASE_URL}/api/user/profile`, {
-    headers: getAuthHeaders(),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'Failed to fetch profile');
-  }
-
-  return response.json();
-}
-
-/**
- * Update User Profile
- */
-export async function updateUserProfile(data: Partial<User>): Promise<ApiResponse<User>> {
-  const response = await fetch(`${API_BASE_URL}/api/user/profile`, {
-    method: 'PATCH',
-    headers: getAuthHeaders(),
-    body: JSON.stringify(data),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'Failed to update profile');
-  }
-
-  return response.json();
-}
-
-/**
- * Upload Avatar
- */
-export async function uploadAvatar(file: File): Promise<ApiResponse<{
-  avatar: string;
-  updatedAt: string;
-}>> {
-  const formData = new FormData();
-  formData.append('avatar', file);
-
-  const response = await fetch(`${API_BASE_URL}/api/user/avatar`, {
-    method: 'POST',
-    headers: {
-      ...(authToken && { 'Authorization': `Bearer ${authToken}` }),
+  const scans: ScanHistory[] = analyses.map(a => ({
+    ...a,
+    repo_id: parseInt(a.repo_url.split('/').pop()?.replace(/\D/g, '') || '1'),
+    vulnerabilities: {
+      critical: 0,
+      high: 0,
+      medium: 0,
+      low: 0,
+      total: a.total_findings,
     },
-    body: formData,
-  });
+  }));
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'Failed to upload avatar');
-  }
-
-  return response.json();
+  return {
+    success: true,
+    data: {
+      scans: scans.slice(0, params?.limit || 20),
+      total: scans.length,
+    },
+  };
 }
 
-/**
- * Get User Settings
- */
-export async function getUserSettings(): Promise<ApiResponse<UserSettings>> {
-  const response = await fetch(`${API_BASE_URL}/api/user/settings`, {
-    headers: getAuthHeaders(),
-  });
+export async function getVulnerabilityTrends(days: number = 30): Promise<ApiResponse<any>> {
+  await delay(400);
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'Failed to fetch settings');
+  // Generate trend data
+  const data = [];
+  const now = new Date();
+
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date(now);
+    date.setDate(date.getDate() - i);
+
+    data.push({
+      date: date.toISOString().split('T')[0],
+      critical: Math.floor(Math.random() * 5),
+      high: Math.floor(Math.random() * 10),
+      medium: Math.floor(Math.random() * 15),
+      low: Math.floor(Math.random() * 20),
+    });
   }
 
-  return response.json();
-}
-
-/**
- * Update User Settings
- */
-export async function updateUserSettings(data: Partial<UserSettings>): Promise<ApiResponse<UserSettings>> {
-  const response = await fetch(`${API_BASE_URL}/api/user/settings`, {
-    method: 'PATCH',
-    headers: getAuthHeaders(),
-    body: JSON.stringify(data),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'Failed to update settings');
-  }
-
-  return response.json();
-}
-
-/**
- * Change Password
- */
-export async function changePassword(currentPassword: string, newPassword: string): Promise<ApiResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/user/password`, {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify({ currentPassword, newPassword }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'Failed to change password');
-  }
-
-  return response.json();
+  return {
+    success: true,
+    data: { trends: data },
+  };
 }
 
 // ============================================================================
-// NOTIFICATIONS ENDPOINTS
+// NOTIFICATIONS API
 // ============================================================================
 
-/**
- * Get Notifications
- */
 export async function getNotifications(params?: {
-  page?: number;
-  limit?: number;
   unreadOnly?: boolean;
-}): Promise<ApiResponse<{
-  notifications: Notification[];
-  unreadCount: number;
-  pagination: any;
-}>> {
-  const searchParams = new URLSearchParams();
-  if (params?.page) searchParams.append('page', params.page.toString());
-  if (params?.limit) searchParams.append('limit', params.limit.toString());
-  if (params?.unreadOnly) searchParams.append('unreadOnly', params.unreadOnly.toString());
+  limit?: number;
+}): Promise<ApiResponse<Notification[]>> {
+  await delay(300);
 
-  const response = await fetch(`${API_BASE_URL}/api/notifications?${searchParams}`, {
-    headers: getAuthHeaders(),
-  });
+  const notifications: Notification[] = [
+    {
+      id: 'notif_1',
+      type: 'scan_complete',
+      title: 'Scan Complete',
+      message: 'Security scan completed for payment-gateway',
+      read: false,
+      createdAt: new Date(Date.now() - 3600000).toISOString(),
+    },
+    {
+      id: 'notif_2',
+      type: 'vulnerability_found',
+      title: 'Critical Vulnerability Found',
+      message: 'CVE-2024-1234 detected in user-management',
+      read: false,
+      createdAt: new Date(Date.now() - 7200000).toISOString(),
+    },
+    {
+      id: 'notif_3',
+      type: 'system',
+      title: 'System Update',
+      message: 'New security definitions available',
+      read: true,
+      createdAt: new Date(Date.now() - 86400000).toISOString(),
+    },
+  ];
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'Failed to fetch notifications');
-  }
+  const filtered = params?.unreadOnly 
+    ? notifications.filter(n => !n.read) 
+    : notifications;
 
-  return response.json();
+  return {
+    success: true,
+    data: filtered.slice(0, params?.limit || 50),
+  };
 }
 
-/**
- * Mark Notification as Read
- */
 export async function markNotificationAsRead(id: string): Promise<ApiResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/notifications/${id}/read`, {
-    method: 'PATCH',
-    headers: getAuthHeaders(),
-  });
+  await delay(200);
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'Failed to mark notification as read');
-  }
-
-  return response.json();
+  return {
+    success: true,
+    message: 'Notification marked as read',
+  };
 }
 
-/**
- * Mark All Notifications as Read
- */
 export async function markAllNotificationsAsRead(): Promise<ApiResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/notifications/read-all`, {
-    method: 'POST',
-    headers: getAuthHeaders(),
-  });
+  await delay(300);
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'Failed to mark all notifications as read');
-  }
-
-  return response.json();
+  return {
+    success: true,
+    message: 'All notifications marked as read',
+  };
 }
 
 // ============================================================================
-// REPORT ENDPOINTS
+// REPORTS API
 // ============================================================================
 
-/**
- * Get Reports - List all analysis reports with filtering
- */
+export async function generateReport(
+  analysisId: number,
+  format: 'pdf' | 'json' | 'csv' = 'pdf'
+): Promise<ApiResponse<{ downloadUrl: string }>> {
+  await delay(1500); // Simulate report generation
+
+  return {
+    success: true,
+    data: {
+      downloadUrl: `/reports/analysis_${analysisId}_report.${format}`,
+    },
+  };
+}
+
+export async function getReportHistory(): Promise<ApiResponse<any[]>> {
+  await delay(300);
+
+  const reports = [
+    {
+      id: 'report_1',
+      analysisId: 1,
+      format: 'pdf',
+      createdAt: new Date(Date.now() - 86400000).toISOString(),
+      size: '2.4 MB',
+    },
+    {
+      id: 'report_2',
+      analysisId: 2,
+      format: 'pdf',
+      createdAt: new Date(Date.now() - 172800000).toISOString(),
+      size: '1.8 MB',
+    },
+  ];
+
+  return {
+    success: true,
+    data: reports,
+  };
+}
+
+// ============================================================================
+// USER SETTINGS API
+// ============================================================================
+
+export async function getUserSettings(): Promise<ApiResponse<UserSettings>> {
+  await delay(300);
+
+  const settings: UserSettings = {
+    notifications: {
+      email: {
+        scanComplete: true,
+        vulnerabilityFound: true,
+        weeklyReport: true,
+      },
+      push: {
+        scanComplete: true,
+        vulnerabilityFound: true,
+      },
+      inApp: {
+        scanComplete: true,
+        vulnerabilityFound: true,
+        systemUpdates: true,
+      },
+    },
+    preferences: {
+      theme: 'dark',
+      language: 'en',
+      timezone: 'UTC',
+    },
+    scanning: {
+      autoScan: true,
+      scanFrequency: 'weekly',
+      notifyOnComplete: true,
+    },
+  };
+
+  return {
+    success: true,
+    data: settings,
+  };
+}
+
+export async function updateUserSettings(
+  settings: Partial<UserSettings>
+): Promise<ApiResponse<UserSettings>> {
+  await delay(400);
+
+  const current = await getUserSettings();
+
+  const updated = {
+    ...current.data!,
+    ...settings,
+  };
+
+  return {
+    success: true,
+    data: updated,
+  };
+}
+
+// ============================================================================
+// HEALTH & SYSTEM API
+// ============================================================================
+
+export async function healthCheck(): Promise<{ status: string; timestamp: string }> {
+  await delay(100);
+
+  return {
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+  };
+}
+
+// ============================================================================
+// SIMULATED REAL-TIME UPDATES
+// ============================================================================
+
+type ProgressCallback = (update: ProgressUpdate) => void;
+type ResultCallback = (result: IntermediateResult) => void;
+type CompleteCallback = (complete: AnalysisComplete) => void;
+
+const progressCallbacks = new Map<number, ProgressCallback[]>();
+const resultCallbacks = new Map<number, ResultCallback[]>();
+const completeCallbacks = new Map<number, CompleteCallback[]>();
+
+export function subscribeToAnalysis(
+  analysisId: number,
+  callbacks: {
+    onProgress?: ProgressCallback;
+    onResult?: ResultCallback;
+    onComplete?: CompleteCallback;
+  }
+) {
+  if (callbacks.onProgress) {
+    if (!progressCallbacks.has(analysisId)) {
+      progressCallbacks.set(analysisId, []);
+    }
+    progressCallbacks.get(analysisId)!.push(callbacks.onProgress);
+  }
+
+  if (callbacks.onResult) {
+    if (!resultCallbacks.has(analysisId)) {
+      resultCallbacks.set(analysisId, []);
+    }
+    resultCallbacks.get(analysisId)!.push(callbacks.onResult);
+  }
+
+  if (callbacks.onComplete) {
+    if (!completeCallbacks.has(analysisId)) {
+      completeCallbacks.set(analysisId, []);
+    }
+    completeCallbacks.get(analysisId)!.push(callbacks.onComplete);
+  }
+
+  return () => {
+    if (callbacks.onProgress) {
+      const cbs = progressCallbacks.get(analysisId);
+      if (cbs) {
+        const idx = cbs.indexOf(callbacks.onProgress);
+        if (idx > -1) cbs.splice(idx, 1);
+      }
+    }
+    if (callbacks.onResult) {
+      const cbs = resultCallbacks.get(analysisId);
+      if (cbs) {
+        const idx = cbs.indexOf(callbacks.onResult);
+        if (idx > -1) cbs.splice(idx, 1);
+      }
+    }
+    if (callbacks.onComplete) {
+      const cbs = completeCallbacks.get(analysisId);
+      if (cbs) {
+        const idx = cbs.indexOf(callbacks.onComplete);
+        if (idx > -1) cbs.splice(idx, 1);
+      }
+    }
+  };
+}
+
+function simulateAnalysisProgress(analysisId: number) {
+  const analysis = mockDataStore.getAnalysis(analysisId);
+  const findings = mockDataStore.getFindings(analysisId);
+  
+  // Realistic stage progression with detailed sub-tasks
+  const stages = [
+    {
+      stage: 'cloning' as ProgressUpdate['stage'],
+      duration: 2500,
+      substeps: [
+        { progress: 2, message: 'Initializing Git client...' },
+        { progress: 5, message: 'Connecting to repository...' },
+        { progress: 8, message: 'Fetching repository metadata...' },
+        { progress: 11, message: 'Cloning repository files...' },
+      ]
+    },
+    {
+      stage: 'chunking' as ProgressUpdate['stage'],
+      duration: 3500,
+      substeps: [
+        { progress: 15, message: 'Scanning directory structure...' },
+        { progress: 18, message: `Discovered ${analysis?.total_files || 0} files to analyze` },
+        { progress: 22, message: 'Parsing source code files...' },
+        { progress: 26, message: 'Creating semantic code chunks...' },
+        { progress: 30, message: `Generated ${analysis?.total_chunks || 0} code chunks` },
+      ]
+    },
+    {
+      stage: 'indexing' as ProgressUpdate['stage'],
+      duration: 3000,
+      substeps: [
+        { progress: 34, message: 'Initializing FAISS vector store...' },
+        { progress: 38, message: 'Computing embeddings with Cohere...' },
+        { progress: 42, message: 'Building semantic search index...' },
+        { progress: 46, message: 'Optimizing index for fast retrieval...' },
+      ]
+    },
+    {
+      stage: 'cve_search' as ProgressUpdate['stage'],
+      duration: 2800,
+      substeps: [
+        { progress: 50, message: 'Querying NVD CVE database...' },
+        { progress: 53, message: 'Fetching latest vulnerability definitions...' },
+        { progress: 56, message: `Retrieved ${findings.length * 2} potential CVE matches` },
+        { progress: 60, message: 'Filtering relevant vulnerabilities...' },
+      ]
+    },
+    {
+      stage: 'decomposition' as ProgressUpdate['stage'],
+      duration: 4000,
+      substeps: [
+        { progress: 63, message: 'Analyzing CVE descriptions with NLP...' },
+        { progress: 66, message: 'Extracting vulnerability patterns...' },
+        { progress: 70, message: 'Decomposing attack vectors...' },
+        { progress: 73, message: 'Identifying code patterns to search...' },
+        { progress: 76, message: 'Building vulnerability signatures...' },
+      ]
+    },
+    {
+      stage: 'code_search' as ProgressUpdate['stage'],
+      duration: 4500,
+      substeps: [
+        { progress: 79, message: 'Searching codebase with semantic similarity...' },
+        { progress: 82, message: 'Analyzing function calls and data flows...' },
+        { progress: 85, message: 'Detecting potentially vulnerable patterns...' },
+        { progress: 88, message: `Found ${findings.length} potential matches` },
+      ]
+    },
+    {
+      stage: 'matching' as ProgressUpdate['stage'],
+      duration: 3500,
+      substeps: [
+        { progress: 90, message: 'Performing deep code analysis...' },
+        { progress: 92, message: 'Computing confidence scores...' },
+        { progress: 94, message: 'Ranking findings by severity...' },
+      ]
+    },
+    {
+      stage: 'validating' as ProgressUpdate['stage'],
+      duration: 5500,
+      substeps: [
+        { progress: 95, message: 'Initializing AI validation agent...' },
+        { progress: 96, message: 'Analyzing code context with LLM...' },
+        { progress: 97, message: 'Validating true positives vs false positives...' },
+        { progress: 98, message: 'Generating validation explanations...' },
+      ]
+    },
+    {
+      stage: 'finalizing' as ProgressUpdate['stage'],
+      duration: 2000,
+      substeps: [
+        { progress: 99, message: 'Compiling final report...' },
+        { progress: 100, message: 'Analysis complete!' },
+      ]
+    },
+  ];
+
+  let currentStageIndex = 0;
+  let currentSubstepIndex = 0;
+  let findingIndex = 0;
+
+  const runSubstep = () => {
+    if (currentStageIndex >= stages.length) {
+      // Mark as completed
+      mockDataStore.updateAnalysisStatus(analysisId, 'completed');
+
+      const completeUpdate: AnalysisComplete = {
+        analysis_id: analysisId,
+        status: 'completed',
+        message: 'Analysis completed successfully',
+        total_findings: findings.length,
+        duration_seconds: Math.floor((Date.now() - new Date(analysis!.start_time!).getTime()) / 1000),
+        timestamp: new Date().toISOString(),
+      };
+
+      const cbs = completeCallbacks.get(analysisId);
+      if (cbs) {
+        cbs.forEach(cb => cb(completeUpdate));
+      }
+
+      return;
+    }
+
+    const stage = stages[currentStageIndex];
+    const substep = stage.substeps[currentSubstepIndex];
+
+    // Update to running status on first stage
+    if (currentStageIndex === 0 && currentSubstepIndex === 0) {
+      mockDataStore.updateAnalysisStatus(analysisId, 'running');
+    }
+
+    // Send progress update
+    const progressUpdate: ProgressUpdate = {
+      analysis_id: analysisId,
+      progress: substep.progress,
+      stage: stage.stage,
+      message: substep.message,
+      timestamp: new Date().toISOString(),
+    };
+
+    const progressCbs = progressCallbacks.get(analysisId);
+    if (progressCbs) {
+      progressCbs.forEach(cb => cb(progressUpdate));
+    }
+
+    // Emit findings gradually during matching and validating stages
+    if ((stage.stage === 'matching' || stage.stage === 'validating') && findingIndex < findings.length) {
+      const findingsToEmit = stage.stage === 'matching' ? 
+        Math.ceil(findings.length * 0.6) : // Emit 60% during matching
+        findings.length; // Emit rest during validation
+
+      if (findingIndex < findingsToEmit) {
+        setTimeout(() => {
+          const finding = findings[findingIndex];
+          const result: IntermediateResult = {
+            type: 'finding',
+            analysis_id: analysisId,
+            cve_id: finding.cve_id,
+            file_path: finding.file_path,
+            severity: finding.severity,
+            confidence_score: finding.confidence_score,
+            timestamp: new Date().toISOString(),
+          };
+
+          const resultCbs = resultCallbacks.get(analysisId);
+          if (resultCbs) {
+            resultCbs.forEach(cb => cb(result));
+          }
+          
+          findingIndex++;
+        }, Math.random() * 800 + 200); // Random delay between 200-1000ms
+      }
+    }
+
+    // Move to next substep or stage
+    currentSubstepIndex++;
+    if (currentSubstepIndex >= stage.substeps.length) {
+      currentSubstepIndex = 0;
+      currentStageIndex++;
+    }
+
+    const delay = stage.duration / stage.substeps.length;
+    setTimeout(runSubstep, delay);
+  };
+
+  // Start the simulation
+  setTimeout(runSubstep, 500);
+}
+
+export function unsubscribeFromAnalysis(analysisId: number) {
+  progressCallbacks.delete(analysisId);
+  resultCallbacks.delete(analysisId);
+  completeCallbacks.delete(analysisId);
+}
+
+// ============================================================================
+// ADDITIONAL API FUNCTIONS
+// ============================================================================
+
+export interface Report {
+  id: string;
+  analysis_id: number;
+  repo_url: string;
+  status: AnalysisStatus;
+  created_at: string;
+  total_findings: number;
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+}
+
 export async function getReports(params?: {
   page?: number;
   perPage?: number;
@@ -1068,444 +1251,155 @@ export async function getReports(params?: {
   repoId?: number;
   startDate?: string;
   endDate?: string;
-  sortBy?: 'created_at' | 'vulnerability_count';
-}): Promise<ApiResponse<{
-  reports: Report[];
-  total: number;
-  page: number;
-  per_page: number;
-  pages: number;
-}>> {
-  const searchParams = new URLSearchParams();
+  sortBy?: string;
+}): Promise<ApiResponse<{ reports: Report[]; page: number; pages: number; total: number }>> {
+  await delay(400);
+
+  const analyses = mockDataStore.getAnalyses();
   
-  if (params?.page) searchParams.append('page', params.page.toString());
-  if (params?.perPage) searchParams.append('perPage', params.perPage.toString());
-  if (params?.status) searchParams.append('status', params.status);
-  if (params?.repoId) searchParams.append('repoId', params.repoId.toString());
-  if (params?.startDate) searchParams.append('startDate', params.startDate);
-  if (params?.endDate) searchParams.append('endDate', params.endDate);
-  if (params?.sortBy) searchParams.append('sortBy', params.sortBy);
+  const reports: Report[] = analyses.map(a => {
+    const findings = mockDataStore.getFindings(a.analysis_id);
+    return {
+      id: `report_${a.analysis_id}`,
+      analysis_id: a.analysis_id,
+      repo_url: a.repo_url,
+      status: a.status,
+      created_at: a.created_at,
+      total_findings: findings.length,
+      critical: findings.filter(f => f.severity === 'CRITICAL').length,
+      high: findings.filter(f => f.severity === 'HIGH').length,
+      medium: findings.filter(f => f.severity === 'MEDIUM').length,
+      low: findings.filter(f => f.severity === 'LOW').length,
+    };
+  });
 
-  const response = await fetch(
-    `${API_BASE_URL}/api/reports?${searchParams}`,
-    {
-      headers: getAuthHeaders(),
-    }
-  );
+  const page = params?.page || 1;
+  const perPage = params?.perPage || 10;
+  const total = reports.length;
+  const pages = Math.ceil(total / perPage);
+  const start = (page - 1) * perPage;
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to fetch reports');
+  return {
+    success: true,
+    data: {
+      reports: reports.slice(start, start + perPage),
+      page,
+      pages,
+      total,
+    },
+  };
+}
+
+export async function getReport(id: string): Promise<ApiResponse<Report>> {
+  await delay(300);
+
+  const analysisId = parseInt(id.replace('report_', ''));
+  const analysis = mockDataStore.getAnalysis(analysisId);
+
+  if (!analysis) {
+    throw new Error('Report not found');
   }
 
-  return response.json();
+  const findings = mockDataStore.getFindings(analysisId);
+
+  return {
+    success: true,
+    data: {
+      id,
+      analysis_id: analysisId,
+      repo_url: analysis.repo_url,
+      status: analysis.status,
+      created_at: analysis.created_at,
+      total_findings: findings.length,
+      critical: findings.filter(f => f.severity === 'CRITICAL').length,
+      high: findings.filter(f => f.severity === 'HIGH').length,
+      medium: findings.filter(f => f.severity === 'MEDIUM').length,
+      low: findings.filter(f => f.severity === 'LOW').length,
+    },
+  };
 }
 
-/**
- * Get Report - Get detailed report for a specific analysis
- */
-export async function getReport(analysisId: number): Promise<ApiResponse<{
-  analysis: Analysis;
-  findings: CVEFinding[];
-  summary: {
-    total_findings: number;
-    by_severity: Record<Severity, number>;
-    by_validation: Record<ValidationStatus, number>;
-    confirmed_vulnerabilities: number;
-    false_positives: number;
-  };
-  repository: {
-    repo_id: number;
-    name: string;
-    url: string;
-    language: string;
-  };
-}>> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/reports/${analysisId}`,
-    {
-      headers: getAuthHeaders(),
-    }
-  );
+export async function exportReport(analysisId: number, format: 'pdf' | 'json' | 'csv' = 'pdf'): Promise<Blob> {
+  await delay(1000);
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to fetch report');
+  const results = await getAnalysisResults(analysisId);
+
+  if (format === 'pdf') {
+    // Generate a simple PDF-like content
+    const content = `
+SECURITY VULNERABILITY REPORT
+Analysis ID: ${analysisId}
+Repository: ${results.analysis.repo_url}
+Generated: ${new Date().toISOString()}
+
+SUMMARY
+=======
+Total Files Analyzed: ${results.summary.total_files}
+Code Chunks: ${results.summary.total_chunks}
+Total Vulnerabilities: ${results.summary.total_findings}
+Confirmed Vulnerabilities: ${results.summary.confirmed_vulnerabilities}
+False Positives: ${results.summary.false_positives}
+
+SEVERITY BREAKDOWN
+==================
+CRITICAL: ${results.summary.severity_breakdown.CRITICAL}
+HIGH: ${results.summary.severity_breakdown.HIGH}
+MEDIUM: ${results.summary.severity_breakdown.MEDIUM}
+LOW: ${results.summary.severity_breakdown.LOW}
+
+DETAILED FINDINGS
+=================
+${results.findings.map((f, i) => `
+${i + 1}. ${f.cve_id} - ${f.severity}
+   File: ${f.file_path}
+   Confidence: ${(f.confidence_score * 100).toFixed(1)}%
+   Status: ${f.validation_status}
+   Description: ${f.cve_description}
+   ${f.validation_explanation ? `Explanation: ${f.validation_explanation}` : ''}
+`).join('\n')}
+
+END OF REPORT
+`;
+
+    return new Blob([content], { type: 'application/pdf' });
   }
 
-  return response.json();
-}
-
-/**
- * Export Report - Export report as PDF
- */
-export async function exportReport(
-  analysisId: number,
-  format: 'pdf' | 'json' = 'pdf'
-): Promise<Blob> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/reports/${analysisId}/export?format=${format}`,
-    {
-      headers: getAuthHeaders(),
-    }
-  );
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to export report');
+  if (format === 'json') {
+    return new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
   }
 
-  return response.blob();
+  // CSV format
+  const csv = `CVE ID,File Path,Severity,Confidence,Status,Description
+${results.findings.map(f => `"${f.cve_id}","${f.file_path}","${f.severity}","${(f.confidence_score * 100).toFixed(1)}%","${f.validation_status}","${f.cve_description}"`).join('\n')}`;
+
+  return new Blob([csv], { type: 'text/csv' });
 }
 
-/**
- * Compare Reports - Compare two analysis reports
- */
-export async function compareReports(
-  analysisId1: number,
-  analysisId2: number
-): Promise<ApiResponse<{
-  analysis1: Analysis;
-  analysis2: Analysis;
-  comparison: {
-    new_findings: CVEFinding[];
-    resolved_findings: CVEFinding[];
-    common_findings: CVEFinding[];
-    severity_changes: any[];
+export async function compareReports(reportIds: string[]): Promise<ApiResponse<any>> {
+  await delay(500);
+
+  return {
+    success: true,
+    data: {
+      comparison: 'Report comparison feature',
+    },
   };
-}>> {
-  const response = await fetch(`${API_BASE_URL}/api/reports/compare`, {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify({
-      analysis_id_1: analysisId1,
-      analysis_id_2: analysisId2,
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to compare reports');
-  }
-
-  return response.json();
 }
 
-// ============================================================================
-// DASHBOARD / ANALYTICS ENDPOINTS
-// ============================================================================
+export async function triggerScan(repoId: string, analysisType: AnalysisType = 'MEDIUM'): Promise<ApiResponse<{ analysis_id: number }>> {
+  return scanRepository(repoId, analysisType);
+}
 
-/**
- * Get Dashboard Overview
- */
-export async function getDashboardOverview(): Promise<ApiResponse<{
-  repositories: {
-    total: number;
-    starred: number;
-    recent: Repository[];
+export async function getDashboardOverview(): Promise<ApiResponse<any>> {
+  await delay(400);
+
+  const stats = mockDataStore.getDashboardStats();
+
+  return {
+    success: true,
+    data: {
+      overview: stats,
+    },
   };
-  scans: {
-    total: number;
-    active: number;
-    completed: number;
-    failed: number;
-    recent_count: number;
-    recent: Analysis[];
-  };
-  vulnerabilities: {
-    total: number;
-    critical: number;
-    high: number;
-    medium: number;
-    low: number;
-  };
-  notifications: {
-    unread: number;
-  };
-}>> {
-  const response = await fetch(`${API_BASE_URL}/api/dashboard/overview`, {
-    headers: getAuthHeaders(),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'Failed to fetch dashboard overview');
-  }
-
-  return response.json();
 }
 
-/**
- * Get Analytics
- */
-export async function getAnalytics(params?: {
-  timeRange?: '7d' | '30d' | '90d' | '1y';
-  groupBy?: 'day' | 'week' | 'month';
-}): Promise<ApiResponse<{
-  timeRange: string;
-  vulnerabilitiesByTime: any[];
-  vulnerabilitiesBySeverity: any[];
-  topAffectedRepositories: any[];
-}>> {
-  const searchParams = new URLSearchParams();
-  if (params?.timeRange) searchParams.append('timeRange', params.timeRange);
-  if (params?.groupBy) searchParams.append('groupBy', params.groupBy);
-
-  const response = await fetch(`${API_BASE_URL}/api/dashboard/analytics?${searchParams}`, {
-    headers: getAuthHeaders(),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'Failed to fetch analytics');
-  }
-
-  return response.json();
-}
-
-// WebSocket Connection
-
-export interface AnalysisCallbacks {
-  onConnect?: () => void;
-  onDisconnect?: () => void;
-  onAnalysisStarted?: (data: { analysis_id: number; room: string; message: string }) => void;
-  onProgress?: (data: ProgressUpdate) => void;
-  onIntermediateResult?: (data: IntermediateResult) => void;
-  onComplete?: (data: AnalysisComplete) => void;
-  onError?: (data: { message: string; details?: string; stage?: string }) => void;
-}
-
-/**
- * Connect to Analysis WebSocket - Real-time updates
- */
-export function connectToAnalysis(analysisId: number, callbacks: AnalysisCallbacks): Socket {
-  const socket = io(`${WS_URL}/analysis`, {
-    transports: ['websocket', 'polling'],
-    reconnection: true,
-    reconnectionAttempts: 5,
-    reconnectionDelay: 1000,
-  });
-
-  // Connection events
-  socket.on('connect', () => {
-    console.log('✅ Connected to analysis agent');
-    callbacks.onConnect?.();
-    
-    // Start the analysis
-    socket.emit('start_analysis', { analysis_id: analysisId });
-  });
-
-  socket.on('disconnect', () => {
-    console.log('🔌 Disconnected from analysis agent');
-    callbacks.onDisconnect?.();
-  });
-
-  socket.on('connected', (data) => {
-    console.log('📡 Connected to namespace:', data);
-  });
-
-  // Analysis events
-  socket.on('analysis_started', (data) => {
-    console.log('🚀 Analysis started:', data);
-    callbacks.onAnalysisStarted?.(data);
-  });
-
-  socket.on('progress_update', (data: ProgressUpdate) => {
-    console.log(`⚡ ${data.progress}% - ${data.stage}: ${data.message}`);
-    callbacks.onProgress?.(data);
-  });
-
-  socket.on('intermediate_result', (data: IntermediateResult) => {
-    console.log('📦 Intermediate result:', data);
-    callbacks.onIntermediateResult?.(data);
-  });
-
-  socket.on('analysis_complete', (data: AnalysisComplete) => {
-    console.log('🎉 Analysis complete!', data);
-    callbacks.onComplete?.(data);
-  });
-
-  socket.on('error', (data) => {
-    console.error('❌ Error:', data);
-    callbacks.onError?.(data);
-  });
-
-  return socket;
-}
-
-/**
- * Disconnect WebSocket
- */
-export function disconnectSocket(socket: Socket): void {
-  if (socket && socket.connected) {
-    socket.disconnect();
-  }
-}
-
-// Helper Functions
-
-/**
- * Extract GitHub URL from text
- */
-export function extractGitHubUrl(text: string): string | null {
-  const patterns = [
-    /https?:\/\/github\.com\/[\w-]+\/[\w.-]+/gi,
-    /github\.com\/[\w-]+\/[\w.-]+/gi,
-  ];
-
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-    if (match) {
-      let url = match[0];
-      if (!url.startsWith('http')) {
-        url = 'https://' + url;
-      }
-      // Remove trailing slash and .git
-      url = url.replace(/\/$/, '').replace(/\.git$/, '');
-      return url;
-    }
-  }
-
-  return null;
-}
-
-/**
- * Format analysis type description
- */
-export function getAnalysisTypeDescription(type: AnalysisType): string {
-  const descriptions = {
-    SHORT: 'Quick Scan (2-3 minutes) - Fast vulnerability detection without AI validation',
-    MEDIUM: 'Standard Audit (5-10 minutes) - Balanced scan with GPT-4 validation',
-    HARD: 'Deep Scan (15-40 minutes) - Comprehensive enterprise-grade security assessment',
-  };
-  return descriptions[type];
-}
-
-/**
- * Get stage description
- */
-export function getStageDescription(stage: string): string {
-  const descriptions: Record<string, string> = {
-    cloning: 'Cloning repository from GitHub...',
-    chunking: 'Parsing and chunking code files...',
-    indexing: 'Creating searchable codebase index with FAISS...',
-    cve_search: 'Searching CVE database for relevant vulnerabilities...',
-    decomposition: 'Decomposing CVE queries using AI (Hype)...',
-    code_search: 'Searching codebase for vulnerability patterns...',
-    matching: 'Matching CVEs to code locations...',
-    validating: 'Validating findings with GPT-4.1...',
-    finalizing: 'Generating reports and finalizing results...',
-    completed: 'Analysis completed successfully!',
-  };
-  return descriptions[stage] || stage;
-}
-
-/**
- * Get severity color
- */
-export function getSeverityColor(severity: Severity): string {
-  const colors: Record<Severity, string> = {
-    CRITICAL: 'text-red-600 bg-red-100 dark:bg-red-950',
-    HIGH: 'text-orange-600 bg-orange-100 dark:bg-orange-950',
-    MEDIUM: 'text-yellow-600 bg-yellow-100 dark:bg-yellow-950',
-    LOW: 'text-blue-600 bg-blue-100 dark:bg-blue-950',
-  };
-  return colors[severity] || 'text-gray-600 bg-gray-100';
-}
-
-/**
- * Format duration
- */
-export function formatDuration(seconds: number): string {
-  if (seconds < 60) {
-    return `${Math.round(seconds)}s`;
-  }
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = Math.round(seconds % 60);
-  return `${minutes}m ${remainingSeconds}s`;
-}
-
-/**
- * Format relative time
- */
-export function formatRelativeTime(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffMins < 1) return 'just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  
-  return date.toLocaleDateString();
-}
-
-export default {
-  // Core Analysis
-  healthCheck,
-  createAnalysis,
-  getAnalysis,
-  getAnalysisResults,
-  listAnalyses,
-  connectToAnalysis,
-  disconnectSocket,
-  
-  // Authentication
-  login,
-  register,
-  refreshToken,
-  logout,
-  requestPasswordReset,
-  confirmPasswordReset,
-  setAuthToken,
-  getAuthToken,
-  
-  // Repositories
-  getRepositories,
-  getRepository,
-  addRepository,
-  updateRepository,
-  deleteRepository,
-  triggerScan,
-  getScanStatus,
-  
-  // Reports
-  getReports,
-  getReport,
-  exportReport,
-  compareReports,
-  
-  // Chat
-  sendChatMessage,
-  getChatHistory,
-  streamChatResponse,
-  
-  // User Profile
-  getUserProfile,
-  updateUserProfile,
-  uploadAvatar,
-  getUserSettings,
-  updateUserSettings,
-  changePassword,
-  
-  // Notifications
-  getNotifications,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
-  
-  // Dashboard
-  getDashboardOverview,
-  getAnalytics,
-  
-  // Helpers
-  extractGitHubUrl,
-  getAnalysisTypeDescription,
-  getStageDescription,
-  getSeverityColor,
-  formatDuration,
-  formatRelativeTime,
-};

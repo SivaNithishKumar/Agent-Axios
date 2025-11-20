@@ -1,7 +1,9 @@
-"""Repository cloning service with LangSmith tracking."""
+"""Repository cloning service with LangSmith tracking and caching."""
 import os
 import tempfile
 import shutil
+import hashlib
+from pathlib import Path
 from git import Repo, GitCommandError
 from langsmith import traceable
 import logging
@@ -9,29 +11,68 @@ import logging
 logger = logging.getLogger(__name__)
 
 class RepoService:
-    """Handles repository cloning and cleanup."""
+    """Handles repository cloning and cleanup with intelligent caching."""
+    
+    def __init__(self, cache_dir: str = "data/cache/repositories"):
+        self.cache_dir = Path(cache_dir)
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Initialized RepoService with cache at {self.cache_dir}")
+    
+    def _get_repo_cache_key(self, repo_url: str, branch: str = None) -> str:
+        """Generate cache key from repo URL and branch."""
+        key = f"{repo_url}:{branch or 'default'}"
+        return hashlib.sha256(key.encode()).hexdigest()
     
     @traceable(name="clone_repository", run_type="tool")
-    def clone(self, repo_url: str, branch: str = None) -> str:
+    def clone(self, repo_url: str, branch: str = None, use_cache: bool = True) -> str:
         """
-        Clone a git repository to a temporary directory.
+        Clone a git repository with intelligent caching.
         
         Args:
             repo_url: Git repository URL (https or ssh)
             branch: Optional branch name (defaults to repo's default branch)
+            use_cache: Whether to use cached repository (default: True)
         
         Returns:
-            str: Absolute path to cloned repository
+            str: Absolute path to cloned repository (cached or fresh)
         
         Raises:
             GitCommandError: If cloning fails
         """
-        temp_dir = None
+        # Check cache first if enabled
+        if use_cache:
+            cache_key = self._get_repo_cache_key(repo_url, branch)
+            cached_path = self.cache_dir / cache_key
+            
+            if cached_path.exists():
+                try:
+                    # Verify it's a valid git repo
+                    cached_repo = Repo(str(cached_path))
+                    
+                    # Try to pull latest changes
+                    try:
+                        origin = cached_repo.remotes.origin
+                        origin.pull()
+                        logger.info(f"✓ Using cached repository at {cached_path} (updated)")
+                    except:
+                        logger.info(f"✓ Using cached repository at {cached_path} (offline mode)")
+                    
+                    logger.info(f"Cache hit! Last commit: {cached_repo.head.commit.hexsha[:8]}")
+                    return str(cached_path)
+                except Exception as e:
+                    logger.warning(f"Cached repo invalid, re-cloning: {e}")
+                    shutil.rmtree(cached_path, ignore_errors=True)
 
+        temp_dir = None
         try:
-            # Create temporary directory
-            temp_dir = tempfile.mkdtemp(prefix='agent_axios_')
-            logger.info(f"Cloning {repo_url} to {temp_dir}")
+            # Determine target directory (cache or temp)
+            if use_cache:
+                cache_key = self._get_repo_cache_key(repo_url, branch)
+                temp_dir = str(self.cache_dir / cache_key)
+                logger.info(f"Cloning {repo_url} to cache: {temp_dir}")
+            else:
+                temp_dir = tempfile.mkdtemp(prefix='agent_axios_')
+                logger.info(f"Cloning {repo_url} to temp: {temp_dir}")
             
             # Clone repository
             clone_kwargs = {
@@ -44,16 +85,18 @@ class RepoService:
             
             repo = Repo.clone_from(repo_url, temp_dir, **clone_kwargs)
             
-            logger.info(f"Successfully cloned {repo_url}")
-            logger.info(f"Active branch: {repo.active_branch.name}")
-            logger.info(f"Last commit: {repo.head.commit.hexsha[:8]}")
+            logger.info(f"✓ Successfully cloned {repo_url}")
+            logger.info(f"  Branch: {repo.active_branch.name}")
+            logger.info(f"  Commit: {repo.head.commit.hexsha[:8]}")
+            if use_cache:
+                logger.info(f"  Cached for future use")
             
             return temp_dir
             
         except GitCommandError as e:
-            logger.error(f"Failed to clone {repo_url}: {str(e)}")
+            logger.error(f"✗ Failed to clone {repo_url}: {str(e)}")
             # Cleanup on failure
-            if temp_dir and os.path.exists(temp_dir):
+            if temp_dir and os.path.exists(temp_dir) and not use_cache:
                 shutil.rmtree(temp_dir)
             raise Exception(f"Failed to clone repository: {str(e)}")
     

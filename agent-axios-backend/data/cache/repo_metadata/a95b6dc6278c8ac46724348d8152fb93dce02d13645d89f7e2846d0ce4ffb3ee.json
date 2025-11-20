@@ -1,0 +1,25 @@
+{
+  "total_files": 216,
+  "languages": {
+    ".rst": 78,
+    ".txt": 10,
+    ".toml": 5,
+    ".md": 3,
+    ".lock": 1,
+    ".py": 83,
+    ".html": 20,
+    ".json": 1,
+    ".css": 2,
+    ".typed": 1,
+    ".sql": 2,
+    ".bat": 1,
+    ".png": 5,
+    ".svg": 3
+  },
+  "important_directories": {},
+  "frameworks_detected": [
+    "Python"
+  ],
+  "cached_at": "2025-11-19T19:37:41.813359",
+  "commit_hash": "2579ce9f18e67ec3213c6eceb5240310ccd46af8"
+}

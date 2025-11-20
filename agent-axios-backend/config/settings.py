@@ -9,6 +9,7 @@ class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key')
     SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'sqlite:///agent_axios.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ECHO = os.getenv('SQLALCHEMY_ECHO', 'false').lower() == 'true'
     
     # Azure OpenAI (GPT-4.1)
     AZURE_OPENAI_API_KEY = os.getenv('AZURE_OPENAI_API_KEY')
@@ -26,14 +27,35 @@ class Config:
     COHERE_RERANK_ENDPOINT = os.getenv('COHERE_RERANK_ENDPOINT')
     COHERE_RERANK_API_KEY = os.getenv('COHERE_RERANK_API_KEY')
     COHERE_RERANK_MODEL = os.getenv('COHERE_RERANK_MODEL', 'Rerank-v3-5')
+
+    # External CVE retrieval service (FAISS + Cohere embeddings)
+    CVE_SERVICE_BASE_URL = os.getenv('CVE_SERVICE_BASE_URL', 'http://140.238.227.29:5000')
+    CVE_SERVICE_TIMEOUT = int(os.getenv('CVE_SERVICE_TIMEOUT', '15'))
     
     # FAISS
+    FAISS_INDEX_DIR = os.getenv('FAISS_INDEX_DIR', 'data/faiss_indexes')
     CVE_FAISS_INDEX_PATH = os.getenv('CVE_FAISS_INDEX_PATH', 'data/faiss_indexes/cve_index.faiss')
     CODEBASE_FAISS_INDEX_PATH = os.getenv('CODEBASE_FAISS_INDEX_PATH', 'data/faiss_indexes/codebase_index.faiss')
+    
+    # Retrieval Configuration (for CVE search)
+    RETRIEVAL_CONFIG = {
+        "default_limit": 10,
+        "max_limit": 100,
+        "similarity_threshold": -10.0,  # Lowered to allow all results including L2 distance > 1.0
+        "search_params": {"metric_type": "COSINE", "params": {"nprobe": 10}},
+    }
+    
+    # Logging Configuration (for retrieval service)
+    LOGGING_CONFIG = {
+        "level": "INFO",
+        "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        "file": "logs/retrieval.log",
+    }
     
     # Flask-SocketIO
     SOCKETIO_ASYNC_MODE = os.getenv('SOCKETIO_ASYNC_MODE', 'eventlet')
     SOCKETIO_CORS_ALLOWED_ORIGINS = os.getenv('SOCKETIO_CORS_ALLOWED_ORIGINS', '*')
+    SOCKETIO_ENABLE_LOGS = os.getenv('SOCKETIO_ENABLE_LOGS', 'false').lower() == 'true'
     
     # LangSmith
     LANGSMITH_TRACING = os.getenv('LANGSMITH_TRACING', 'true').lower() == 'true'

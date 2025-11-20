@@ -7,6 +7,7 @@ import { ThemeProvider } from "./components/ThemeProvider";
 import { AuthProvider } from "./contexts/AuthContext";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import Analyze from "./pages/Analyze";
 import Reports from "./pages/Reports";
 import Repositories from "./pages/Repositories";
 import Settings from "./pages/Settings";
@@ -26,6 +27,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Login />} />
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/analyze" element={<ProtectedRoute><Analyze /></ProtectedRoute>} />
               <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
               <Route path="/repositories" element={<ProtectedRoute><Repositories /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />

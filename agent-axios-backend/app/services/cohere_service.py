@@ -10,16 +10,25 @@ from openai import OpenAI
 logger = logging.getLogger(__name__)
 
 class CohereEmbeddingService:
-    """Service for generating embeddings using Azure-hosted Cohere models via OpenAI SDK."""
+    """Service for generating embeddings using Azure-hosted Cohere models via OpenAI SDK with caching."""
     
-    def __init__(self):
+    def __init__(self, use_cache: bool = True):
         self.client = OpenAI(
             base_url=Config.COHERE_EMBED_ENDPOINT,
             api_key=Config.COHERE_EMBED_API_KEY
         )
         self.model = Config.COHERE_EMBED_MODEL
         self.dimensions = Config.COHERE_EMBED_DIMENSIONS
-        logger.info(f"Initialized Azure Cohere Embedding Service: {self.model} ({self.dimensions}d)")
+        self.use_cache = use_cache
+        
+        # Initialize cache if enabled
+        if self.use_cache:
+            from app.services.caching_service import get_cache_manager
+            self.cache = get_cache_manager().embedding_cache
+            logger.info(f"Initialized Azure Cohere Embedding Service with caching: {self.model} ({self.dimensions}d)")
+        else:
+            self.cache = None
+            logger.info(f"Initialized Azure Cohere Embedding Service: {self.model} ({self.dimensions}d)")
     
     @traceable(name="cohere_generate_embeddings", run_type="embedding")
     def generate_embeddings(
@@ -28,7 +37,7 @@ class CohereEmbeddingService:
         input_type: str = "search_document"
     ) -> List[List[float]]:
         """
-        Generate embeddings with retry logic using OpenAI SDK for Azure-hosted Cohere.
+        Generate embeddings with retry logic and caching using OpenAI SDK for Azure-hosted Cohere.
         
         Args:
             texts: List of texts to embed
@@ -37,30 +46,61 @@ class CohereEmbeddingService:
         Returns:
             List of embedding vectors
         """
+        # Check cache first if enabled
+        if self.use_cache and self.cache:
+            cached_embeddings, missing_indices = self.cache.get_batch(texts, self.model)
+            
+            if not missing_indices:
+                logger.info(f"All {len(texts)} embeddings retrieved from cache")
+                return cached_embeddings
+            
+            logger.info(f"Cache hit for {len(texts) - len(missing_indices)}/{len(texts)} embeddings")
+        else:
+            cached_embeddings = [None] * len(texts)
+            missing_indices = list(range(len(texts)))
+        
+        # Generate embeddings for cache misses
+        texts_to_embed = [texts[i] for i in missing_indices]
+        
         for attempt in range(3):
             try:
                 start_time = time.time()
                 
                 # Use OpenAI SDK for Azure-hosted Cohere embeddings
                 response = self.client.embeddings.create(
-                    input=texts,
+                    input=texts_to_embed,
                     model=self.model
                 )
                 
                 # Extract embeddings from response
-                embeddings = [item.embedding for item in response.data]
+                new_embeddings = [item.embedding for item in response.data]
                 latency = time.time() - start_time
                 
                 # Validate embeddings
-                assert len(embeddings) == len(texts), "Embedding count mismatch"
-                assert len(embeddings[0]) == self.dimensions, f"Dimension mismatch: {len(embeddings[0])} != {self.dimensions}"
+                assert len(new_embeddings) == len(texts_to_embed), "Embedding count mismatch"
+                assert len(new_embeddings[0]) == self.dimensions, f"Dimension mismatch: {len(new_embeddings[0])} != {self.dimensions}"
+                
+                # Merge cached and new embeddings
+                result = []
+                new_idx = 0
+                for i in range(len(texts)):
+                    if i in missing_indices:
+                        result.append(new_embeddings[new_idx])
+                        new_idx += 1
+                    else:
+                        result.append(cached_embeddings[i])
+                
+                # Cache new embeddings
+                if self.use_cache and self.cache:
+                    self.cache.set_batch(texts_to_embed, new_embeddings, self.model)
                 
                 logger.info(
-                    f"Generated {len(embeddings)} embeddings in {latency:.2f}s "
-                    f"(avg {latency/len(embeddings)*1000:.1f}ms per text)"
+                    f"Generated {len(new_embeddings)} new embeddings in {latency:.2f}s "
+                    f"(avg {latency/len(new_embeddings)*1000:.1f}ms per text) "
+                    f"+ {len(texts) - len(new_embeddings)} from cache"
                 )
                 
-                return embeddings
+                return result
                 
             except Exception as e:
                 logger.error(f"Embedding attempt {attempt + 1} failed: {str(e)}")

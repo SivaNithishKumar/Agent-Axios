@@ -1,5 +1,6 @@
 """Chat service for AI assistant conversations."""
 from app.models import ChatMessage, Analysis, db
+from sqlalchemy import and_, desc, func
 from datetime import datetime
 import logging
 import uuid
@@ -95,36 +96,52 @@ class ChatService:
             List of session dicts with session_id and last message
         """
         try:
-            # Get distinct sessions
-            sessions = db.session.query(
-                ChatMessage.session_id,
-                db.func.max(ChatMessage.created_at).label('last_message_at'),
-                db.func.count(ChatMessage.message_id).label('message_count')
-            ).filter_by(
-                user_id=user_id
+            session_base = db.session.query(
+                ChatMessage.session_id.label('session_id'),
+                func.max(ChatMessage.created_at).label('last_message_at'),
+                func.count(ChatMessage.message_id).label('message_count')
+            ).filter(
+                ChatMessage.user_id == user_id
             ).group_by(
                 ChatMessage.session_id
+            ).subquery()
+
+            first_user_messages = db.session.query(
+                ChatMessage.session_id.label('session_id'),
+                ChatMessage.content.label('content'),
+                func.row_number().over(
+                    partition_by=ChatMessage.session_id,
+                    order_by=ChatMessage.created_at.asc()
+                ).label('row_number')
+            ).filter(
+                ChatMessage.user_id == user_id,
+                ChatMessage.role == 'user'
+            ).subquery()
+
+            sessions = db.session.query(
+                session_base.c.session_id,
+                session_base.c.last_message_at,
+                session_base.c.message_count,
+                first_user_messages.c.content
+            ).outerjoin(
+                first_user_messages,
+                and_(
+                    session_base.c.session_id == first_user_messages.c.session_id,
+                    first_user_messages.c.row_number == 1
+                )
             ).order_by(
-                db.desc('last_message_at')
+                desc(session_base.c.last_message_at)
             ).all()
-            
-            result = []
-            for session in sessions:
-                # Get first user message for preview
-                first_message = db.session.query(ChatMessage).filter_by(
-                    user_id=user_id,
-                    session_id=session.session_id,
-                    role='user'
-                ).order_by(ChatMessage.created_at.asc()).first()
-                
-                result.append({
+
+            return [
+                {
                     'session_id': session.session_id,
-                    'last_message_at': session.last_message_at.isoformat(),
+                    'last_message_at': session.last_message_at.isoformat() if session.last_message_at else None,
                     'message_count': session.message_count,
-                    'preview': first_message.content[:100] if first_message else ''
-                })
-            
-            return result
+                    'preview': (session.content or '')[:100]
+                }
+                for session in sessions
+            ]
             
         except Exception as e:
             logger.error(f"Error getting sessions: {str(e)}")

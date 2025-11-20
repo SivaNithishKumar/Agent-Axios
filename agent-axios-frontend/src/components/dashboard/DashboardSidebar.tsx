@@ -1,4 +1,4 @@
-import { Home, Star, User, Plus, Shield, TrendingUp, FileText, Settings, FolderGit2, Loader2 } from "lucide-react";
+import { Home, Star, User, Plus, Shield, TrendingUp, FileText, Settings, FolderGit2, Loader2, Scan } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -22,9 +22,10 @@ import { getDashboardOverview } from "@/services/api";
 
 const navigationItems = [
   { id: 1, title: "Dashboard", icon: Home, path: "/dashboard" },
-  { id: 2, title: "Repositories", icon: FolderGit2, path: "/repositories" },
-  { id: 3, title: "Reports", icon: FileText, path: "/reports" },
-  { id: 4, title: "Settings", icon: Settings, path: "/settings" },
+  { id: 2, title: "New Analysis", icon: Scan, path: "/analyze" },
+  { id: 3, title: "Repositories", icon: FolderGit2, path: "/repositories" },
+  { id: 4, title: "Reports", icon: FileText, path: "/reports" },
+  { id: 5, title: "Settings", icon: Settings, path: "/settings" },
 ];
 
 export function DashboardSidebar() {
@@ -78,6 +79,7 @@ export function DashboardSidebar() {
         {/* New Analysis Button */}
         <div className="p-3 flex-shrink-0">
           <Button 
+            onClick={() => navigate("/analyze")}
             className="w-full bg-primary hover:bg-primary-hover text-primary-foreground shadow-sm transition-all justify-start"
             size={open ? "default" : "icon"}
           >

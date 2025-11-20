@@ -2,6 +2,7 @@
 from flask import Blueprint, request, jsonify, send_file
 from app.services.auth_service import require_auth, get_current_user
 from app.models import Analysis, Repository, CVEFinding, db
+from sqlalchemy.orm import joinedload
 from datetime import datetime
 import logging
 import json
@@ -38,7 +39,9 @@ def get_reports():
         sort_by = request.args.get('sortBy', 'created_at')
         
         # Build query
-        query = db.session.query(Analysis).join(Repository).filter(
+        query = db.session.query(Analysis).options(
+            joinedload(Analysis.repository)
+        ).join(Repository).filter(
             Repository.user_id == user.user_id
         )
         

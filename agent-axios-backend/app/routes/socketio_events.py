@@ -1,5 +1,6 @@
 """WebSocket event handlers for real-time communication."""
 from flask_socketio import emit, join_room, leave_room, Namespace
+from flask import request
 from app import socketio
 from app.models import Analysis, db
 import logging
@@ -9,10 +10,12 @@ logger = logging.getLogger(__name__)
 class AnalysisNamespace(Namespace):
     """Namespace for analysis-related WebSocket events."""
     
-    def on_connect(self):
+    def on_connect(self, auth=None):
         """Handle client connection."""
-        logger.info(f"Client connected to /analysis namespace")
+        sid = request.sid if hasattr(request, 'sid') else 'unknown'
+        logger.info(f"Client connected to /analysis namespace - SID: {sid[:8]}...")
         emit('connected', {'message': 'Connected to analysis namespace', 'status': 'ok'})
+        logger.info("Sent 'connected' event to client")
     
     def on_disconnect(self):
         """Handle client disconnection."""
@@ -45,19 +48,26 @@ class AnalysisNamespace(Namespace):
             # Join analysis room
             room = f"analysis_{analysis_id}"
             join_room(room)
+            logger.info(f"Client joined room: {room}")
             
-            logger.info(f"Starting analysis {analysis_id} in background")
-            
-            # Start background analysis task
-            from app.services.analysis_orchestrator import AnalysisOrchestrator
-            orchestrator = AnalysisOrchestrator(analysis_id, socketio)
-            socketio.start_background_task(target=orchestrator.run)
-            
+            # Send acknowledgment first
             emit('analysis_started', {
                 'analysis_id': analysis_id,
                 'room': room,
-                'message': 'Analysis started'
+                'message': 'Analysis started successfully'
             })
+            
+            logger.info(f"Starting analysis {analysis_id} in background")
+            
+            # Start background analysis task with orchestrator (with small delay to ensure room is joined)
+            import time
+            def start_with_delay():
+                time.sleep(0.5)  # Small delay to ensure client is in room
+                from app.services.mock_agentic_orchestrator import AgenticVulnerabilityOrchestrator
+                orchestrator = AgenticVulnerabilityOrchestrator(analysis_id, socketio)
+                orchestrator.run()
+            
+            socketio.start_background_task(target=start_with_delay)
             
         except Exception as e:
             logger.error(f"Failed to start analysis: {str(e)}")
@@ -89,5 +99,10 @@ class AnalysisNamespace(Namespace):
             logger.error(f"Failed to get progress: {str(e)}")
             emit('error', {'message': str(e)})
 
-# Register namespace
-socketio.on_namespace(AnalysisNamespace('/analysis'))
+_analysis_namespace = AnalysisNamespace('/analysis')
+
+def register_analysis_namespace():
+    """Ensure the /analysis namespace is registered on the current server."""
+    # flask_socketio reuses the same Namespaces when reinitializing the app, so we
+    # keep a single instance and re-register it after each socketio.init_app call.
+    socketio.on_namespace(_analysis_namespace)

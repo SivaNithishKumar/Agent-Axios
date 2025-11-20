@@ -1,8 +1,7 @@
 """API routes for Agent Axios backend."""
 from flask import Blueprint, request, jsonify
 from datetime import datetime
-from app.models import Analysis, db
-from app.services.analysis_orchestrator import AnalysisOrchestrator
+from app.models import Analysis, Repository, db
 from app import socketio
 import logging
 
@@ -17,6 +16,19 @@ def health_check():
         'status': 'healthy',
         'timestamp': datetime.utcnow().isoformat()
     })
+
+def _resolve_repo_id(repo_id_value, repo_url):
+    """Resolve a repository ID either from explicit ID or by matching URL."""
+    if repo_id_value:
+        repo = db.session.query(Repository).filter_by(repo_id=repo_id_value).first()
+        if repo:
+            return repo.repo_id
+    if repo_url:
+        repo = db.session.query(Repository).filter(Repository.url == repo_url).first()
+        if repo:
+            return repo.repo_id
+    return None
+
 
 @api_bp.route('/analysis', methods=['POST'])
 def create_analysis():
@@ -42,13 +54,17 @@ def create_analysis():
         repo_url = data['repo_url']
         analysis_type = data['analysis_type'].upper()
         config_json = data.get('config', {})
+        repo_id = data.get('repo_id') or data.get('repoId')
         
         if analysis_type not in ['SHORT', 'MEDIUM', 'HARD']:
             return jsonify({'error': 'analysis_type must be SHORT, MEDIUM, or HARD'}), 400
+
+        resolved_repo_id = _resolve_repo_id(repo_id, repo_url)
         
         # Create analysis record
         analysis = Analysis(
             repo_url=repo_url,
+            repo_id=resolved_repo_id,
             analysis_type=analysis_type,
             status='pending',
             config_json=config_json

@@ -1,47 +1,21 @@
 import { useEffect } from "react";
-import { CheckCircle2, Loader2, Circle, Zap, Shield, Search, FileCode, Database, Brain, CheckCheck } from "lucide-react";
+import { CheckCircle2, Loader2, Brain, Sparkles, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getStageDescription } from "@/services/api";
 
 interface AnalysisProgressProps {
   progress: number;
   stage: string;
   status: string;
+  message?: string;
 }
 
-export function AnalysisProgress({ progress, stage, status }: AnalysisProgressProps) {
+export function AnalysisProgress({ progress, stage, status, message }: AnalysisProgressProps) {
   useEffect(() => {
-    console.log('📊 AnalysisProgress props changed:', { progress, stage, status });
-  }, [progress, stage, status]);
+    console.log('📊 AnalysisProgress:', { progress, stage, status, message });
+  }, [progress, stage, status, message]);
 
-  const steps = [
-    { id: 'cloning', label: 'Cloning repository', range: [0, 10], icon: Database },
-    { id: 'chunking', label: 'Parsing code files', range: [10, 20], icon: FileCode },
-    { id: 'indexing', label: 'Indexing codebase', range: [20, 35], icon: Brain },
-    { id: 'cve_search', label: 'Searching CVE database', range: [35, 45], icon: Search },
-    { id: 'decomposition', label: 'Decomposing queries', range: [45, 50], icon: Zap },
-    { id: 'code_search', label: 'Searching codebase', range: [50, 70], icon: Search },
-    { id: 'matching', label: 'Matching CVEs to code', range: [70, 75], icon: Shield },
-    { id: 'validating', label: 'Validating findings', range: [75, 95], icon: CheckCheck },
-    { id: 'finalizing', label: 'Generating report', range: [95, 100], icon: FileCode },
-  ];
-
-  const getStepStatus = (stepId: string, stepIndex: number) => {
-    // Use progress percentage to determine step status more reliably
-    const [rangeStart, rangeEnd] = steps[stepIndex].range;
-    
-    if (progress >= 100) {
-      return 'complete'; // All complete when analysis is done
-    } else if (progress > rangeEnd) {
-      return 'complete';
-    } else if (progress >= rangeStart && progress <= rangeEnd) {
-      return 'active';
-    } else {
-      return 'pending';
-    }
-  };
-
-  const isCompleted = progress >= 100 || stage === 'completed';
+  const isCompleted = progress >= 100 || status === 'completed';
+  const isRunning = status === 'running' && !isCompleted;
 
   return (
     <div className="bg-gradient-to-br from-card via-card to-secondary/20 border-2 border-primary/20 rounded-2xl p-6 shadow-xl animate-scale-in relative overflow-hidden">
@@ -52,81 +26,61 @@ export function AnalysisProgress({ progress, stage, status }: AnalysisProgressPr
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
           <div className={cn(
-            "flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-300",
+            "flex items-center justify-center w-12 h-12 rounded-xl transition-all duration-300",
             isCompleted 
               ? "bg-success/20 text-success ring-2 ring-success/30" 
               : "bg-primary/20 text-primary ring-2 ring-primary/30 animate-pulse-glow"
           )}>
             {isCompleted ? (
-              <CheckCircle2 className="w-6 h-6" />
+              <CheckCircle2 className="w-7 h-7" />
             ) : (
-              <Loader2 className="w-6 h-6 animate-spin" />
+              <Brain className="w-7 h-7 animate-pulse" />
             )}
           </div>
           <div className="flex-1">
-            <h3 className="font-bold text-lg text-foreground">
-              {isCompleted ? '✨ Analysis Complete' : '🚀 Analyzing Repository'}
+            <h3 className="font-bold text-xl text-foreground">
+              {isCompleted ? '✨ Analysis Complete' : '🤖 AI Agent Active'}
             </h3>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {isCompleted ? 'All vulnerabilities have been identified' : 'Scanning for security vulnerabilities...'}
+            <p className="text-sm text-muted-foreground mt-1">
+              {isCompleted ? 'Vulnerability scan finished' : 'Agent is autonomously analyzing code'}
             </p>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            <div className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
               {Math.round(progress)}%
             </div>
           </div>
         </div>
 
-        {/* Progress Steps */}
-        <div className="space-y-3 mb-5">
-          {steps.map((step, index) => {
-            const stepStatus = getStepStatus(step.id, index);
-            const StepIcon = step.icon;
-            return (
-              <div 
-                key={step.id} 
-                className={cn(
-                  "flex items-center gap-3 p-3 rounded-xl transition-all duration-300",
-                  stepStatus === "active" && "bg-primary/10 border border-primary/30 shadow-lg",
-                  stepStatus === "complete" && "bg-success/5",
-                )}
-              >
-                <div className={cn(
-                  "flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-300 flex-shrink-0",
-                  stepStatus === "complete" && "bg-success/20 text-success",
-                  stepStatus === "active" && "bg-primary/20 text-primary animate-pulse",
-                  stepStatus === "pending" && "bg-muted/50 text-muted-foreground"
-                )}>
-                  {stepStatus === "complete" && <CheckCircle2 className="w-5 h-5" />}
-                  {stepStatus === "active" && <StepIcon className="w-5 h-5" />}
-                  {stepStatus === "pending" && <Circle className="w-5 h-5" />}
+        {/* Current Stage - Dynamic from backend */}
+        {stage && (
+          <div className="mb-5 p-4 bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 rounded-xl">
+            <div className="flex items-center gap-3">
+              <Activity className="w-5 h-5 text-primary animate-pulse" />
+              <div className="flex-1">
+                <div className="text-sm font-semibold text-foreground mb-1">
+                  Current Stage: {stage.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                 </div>
-                <span
-                  className={cn(
-                    "text-sm font-medium transition-colors duration-300",
-                    stepStatus === "complete" && "text-muted-foreground line-through",
-                    stepStatus === "active" && "text-foreground font-semibold",
-                    stepStatus === "pending" && "text-muted-foreground"
-                  )}
-                >
-                  {step.label}
-                </span>
-                {stepStatus === "active" && (
-                  <div className="ml-auto flex gap-1">
-                    <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                {message && (
+                  <div className="text-xs text-muted-foreground">
+                    {message}
                   </div>
                 )}
               </div>
-            );
-          })}
-        </div>
+              {isRunning && (
+                <div className="flex gap-1">
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Progress Bar */}
         <div className="space-y-2">
-          <div className="h-3 bg-secondary/50 rounded-full overflow-hidden shadow-inner">
+          <div className="h-4 bg-secondary/50 rounded-full overflow-hidden shadow-inner">
             <div
               className={cn(
                 "h-full rounded-full transition-all duration-500 ease-out relative",
@@ -134,21 +88,19 @@ export function AnalysisProgress({ progress, stage, status }: AnalysisProgressPr
                   ? "bg-gradient-to-r from-success to-success/80" 
                   : "bg-gradient-to-r from-primary via-accent to-primary bg-[length:200%_100%] animate-shimmer"
               )}
-              style={{ width: `${progress}%` }}
+              style={{ width: `${Math.min(progress, 100)}%` }}
             >
               <div className="absolute inset-0 bg-white/20 animate-pulse-soft" />
             </div>
           </div>
-          {stage && (
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground font-medium">
-                {getStageDescription(stage)}
-              </span>
-              <span className="text-foreground font-semibold px-2 py-0.5 bg-primary/10 rounded-full">
-                {Math.round(progress)}%
-              </span>
-            </div>
-          )}
+          <div className="flex items-center justify-between text-xs pt-1">
+            <span className="text-muted-foreground font-medium">
+              {isCompleted ? 'Analysis finished' : 'Agent is working...'}
+            </span>
+            <span className="text-foreground font-semibold px-3 py-1 bg-primary/10 rounded-full">
+              {Math.round(progress)}%
+            </span>
+          </div>
         </div>
       </div>
     </div>

@@ -81,6 +81,17 @@ const Login = () => {
           {/* Login Form */}
           {isLogin ? (
             <form onSubmit={handleLogin} className="space-y-5">
+              {/* Demo Credentials Info */}
+              <div className="bg-primary/10 border border-primary/20 rounded-xl p-3 mb-2">
+                <p className="text-xs font-medium text-primary mb-1">Demo Credentials:</p>
+                <p className="text-xs text-muted-foreground">
+                  Email: <span className="font-mono font-semibold">admin@agentaxios.com</span>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Password: <span className="font-mono font-semibold">any password</span>
+                </p>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm font-semibold">
                   Email

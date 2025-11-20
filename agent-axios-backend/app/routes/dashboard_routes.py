@@ -2,6 +2,9 @@
 from flask import Blueprint, request, jsonify
 from app.services.auth_service import require_auth, get_current_user
 from app.models import Repository, Analysis, CVEFinding, Notification, db
+from sqlalchemy import case, func
+from sqlalchemy.orm import joinedload
+from types import SimpleNamespace
 from datetime import datetime, timedelta
 import logging
 
@@ -17,52 +20,44 @@ def get_dashboard_overview():
     try:
         user = get_current_user()
         
-        # Repository stats
-        repos = db.session.query(Repository).filter_by(user_id=user.user_id).all()
-        total_repos = len(repos)
-        starred_repos = sum(1 for r in repos if getattr(r, 'is_starred', False))
+        # Repository stats via single aggregate query
+        repo_stats = db.session.query(
+            func.count(Repository.repo_id).label('total'),
+            func.sum(case((Repository.is_starred.is_(True), 1), else_=0)).label('starred'),
+            func.coalesce(func.sum(Repository.vulnerability_count), 0).label('total_vulns'),
+            func.coalesce(func.sum(Repository.critical_count), 0).label('critical'),
+            func.coalesce(func.sum(Repository.high_count), 0).label('high'),
+            func.coalesce(func.sum(Repository.medium_count), 0).label('medium'),
+            func.coalesce(func.sum(Repository.low_count), 0).label('low')
+        ).filter(
+            Repository.user_id == user.user_id
+        ).one()
 
-        # Build list of repository URLs owned by user (avoid relying on a missing FK column)
-        repo_urls = [r.url for r in repos]
+        total_repos = repo_stats.total or 0
+        starred_repos = int(repo_stats.starred or 0)
 
-        # Analysis stats - use repo_url matching since DB may lack analyses.repo_id column
-        total_scans = db.session.query(Analysis).filter(Analysis.repo_url.in_(repo_urls)).count() if repo_urls else 0
+        repo_ids_subquery = db.session.query(Repository.repo_id).filter(
+            Repository.user_id == user.user_id
+        ).subquery()
 
-        active_scans = db.session.query(Analysis).filter(
-            Analysis.repo_url.in_(repo_urls),
-            Analysis.status.in_(['pending', 'running'])
-        ).count() if repo_urls else 0
-
-        completed_scans = db.session.query(Analysis).filter(
-            Analysis.repo_url.in_(repo_urls),
-            Analysis.status == 'completed'
-        ).count() if repo_urls else 0
-
-        failed_scans = db.session.query(Analysis).filter(
-            Analysis.repo_url.in_(repo_urls),
-            Analysis.status == 'failed'
-        ).count() if repo_urls else 0
+        if total_repos:
+            analysis_stats = db.session.query(
+                func.count(Analysis.analysis_id).label('total'),
+                func.sum(case((Analysis.status.in_(['pending', 'running']), 1), else_=0)).label('active'),
+                func.sum(case((Analysis.status == 'completed', 1), else_=0)).label('completed'),
+                func.sum(case((Analysis.status == 'failed', 1), else_=0)).label('failed')
+            ).filter(
+                Analysis.repo_id.in_(repo_ids_subquery)
+            ).one()
+        else:
+            analysis_stats = SimpleNamespace(total=0, active=0, completed=0, failed=0)
         
         # Vulnerability stats
-        total_vulnerabilities = db.session.query(db.func.sum(Repository.vulnerability_count)).filter(
-            Repository.user_id == user.user_id
-        ).scalar() or 0
-        
-        critical_count = db.session.query(db.func.sum(Repository.critical_count)).filter(
-            Repository.user_id == user.user_id
-        ).scalar() or 0
-        
-        high_count = db.session.query(db.func.sum(Repository.high_count)).filter(
-            Repository.user_id == user.user_id
-        ).scalar() or 0
-        
-        medium_count = db.session.query(db.func.sum(Repository.medium_count)).filter(
-            Repository.user_id == user.user_id
-        ).scalar() or 0
-        
-        low_count = db.session.query(db.func.sum(Repository.low_count)).filter(
-            Repository.user_id == user.user_id
-        ).scalar() or 0
+        total_vulnerabilities = int(repo_stats.total_vulns or 0)
+        critical_count = int(repo_stats.critical or 0)
+        high_count = int(repo_stats.high or 0)
+        medium_count = int(repo_stats.medium or 0)
+        low_count = int(repo_stats.low or 0)
         
         # Notification stats
         unread_notifications = db.session.query(Notification).filter_by(
@@ -71,18 +66,26 @@ def get_dashboard_overview():
         
         # Recent activity (last 7 days)
         week_ago = datetime.utcnow() - timedelta(days=7)
-        recent_scans = db.session.query(Analysis).filter(
-            Analysis.repo_url.in_(repo_urls),
-            Analysis.created_at >= week_ago
-        ).count() if repo_urls else 0
-        
-        # Get recent repositories
-        recent_repos = repos[:5]
-        
-        # Get recent analyses
-        recent_analyses = db.session.query(Analysis).filter(
-            Analysis.repo_url.in_(repo_urls)
-        ).order_by(Analysis.created_at.desc()).limit(5).all() if repo_urls else []
+        if total_repos:
+            recent_scans = db.session.query(Analysis).filter(
+                Analysis.repo_id.in_(repo_ids_subquery),
+                Analysis.created_at >= week_ago
+            ).count()
+
+            recent_analyses = db.session.query(Analysis).options(
+                joinedload(Analysis.repository)
+            ).filter(
+                Analysis.repo_id.in_(repo_ids_subquery)
+            ).order_by(
+                Analysis.created_at.desc()
+            ).limit(5).all()
+        else:
+            recent_scans = 0
+            recent_analyses = []
+
+        recent_repos = db.session.query(Repository).filter(
+            Repository.user_id == user.user_id
+        ).order_by(Repository.updated_at.desc()).limit(5).all()
         
         return jsonify({
             'repositories': {
@@ -91,10 +94,10 @@ def get_dashboard_overview():
                 'recent': [r.to_dict() for r in recent_repos]
             },
             'scans': {
-                'total': total_scans,
-                'active': active_scans,
-                'completed': completed_scans,
-                'failed': failed_scans,
+                'total': int(analysis_stats.total or 0),
+                'active': int(analysis_stats.active or 0),
+                'completed': int(analysis_stats.completed or 0),
+                'failed': int(analysis_stats.failed or 0),
                 'recent_count': recent_scans,
                 'recent': [a.to_dict() for a in recent_analyses]
             },
@@ -131,33 +134,33 @@ def get_analytics():
         
         # Scan trends
         scan_history = db.session.query(
-            db.func.date(Analysis.created_at).label('date'),
-            db.func.count(Analysis.analysis_id).label('count'),
+            func.date(Analysis.created_at).label('date'),
+            func.count(Analysis.analysis_id).label('count'),
             Analysis.status
         ).join(Repository).filter(
             Repository.user_id == user.user_id,
             Analysis.created_at >= start_date
         ).group_by(
-            db.func.date(Analysis.created_at),
+            func.date(Analysis.created_at),
             Analysis.status
         ).all()
         
         # Vulnerability trends
         vuln_history = db.session.query(
-            db.func.date(Analysis.created_at).label('date'),
-            db.func.sum(Analysis.total_findings).label('findings')
+            func.date(Analysis.created_at).label('date'),
+            func.sum(Analysis.total_findings).label('findings')
         ).join(Repository).filter(
             Repository.user_id == user.user_id,
             Analysis.created_at >= start_date,
             Analysis.status == 'completed'
         ).group_by(
-            db.func.date(Analysis.created_at)
+            func.date(Analysis.created_at)
         ).all()
         
         # Language distribution
         language_dist = db.session.query(
             Repository.language,
-            db.func.count(Repository.repo_id).label('count')
+            func.count(Repository.repo_id).label('count')
         ).filter(
             Repository.user_id == user.user_id,
             Repository.language.isnot(None)

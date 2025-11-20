@@ -4,6 +4,7 @@ from typing import List, Callable, Optional
 from openai import AzureOpenAI
 from langsmith import traceable
 from app.models import CodeChunk, CVEFinding, CVEDataset, db
+from config.settings import Config
 import logging
 
 logger = logging.getLogger(__name__)
@@ -13,11 +14,15 @@ class ValidationService:
     
     def __init__(self):
         self.client = AzureOpenAI(
-            api_key=os.getenv('AZURE_OPENAI_API_KEY'),
-            api_version='2023-12-01-preview',
-            azure_endpoint=os.getenv('AZURE_OPENAI_ENDPOINT')
+            api_key=Config.AZURE_OPENAI_API_KEY,
+            api_version=Config.AZURE_OPENAI_API_VERSION,
+            azure_endpoint=Config.AZURE_OPENAI_ENDPOINT
         )
-        self.model = os.getenv('AZURE_OPENAI_DEPLOYMENT', 'gpt-4')
+        self.model = Config.AZURE_OPENAI_MODEL
+        logger.info(f"ValidationService initialized:")
+        logger.info(f"  Model deployment: {self.model}")
+        logger.info(f"  API version: {Config.AZURE_OPENAI_API_VERSION}")
+        logger.info(f"  Endpoint: {Config.AZURE_OPENAI_ENDPOINT}")
     
     @traceable(name="validate_all_findings", run_type="tool")
     def validate_all_findings(
@@ -78,7 +83,7 @@ class ValidationService:
         
         confirmed = sum(1 for f in findings if f.validation_status == 'confirmed')
         logger.info(f"Validation complete: {confirmed}/{total} confirmed")
-    db.session.commit()
+        db.session.commit()
     
     @traceable(name="validate_single_finding", run_type="llm")
     def _validate_finding(
@@ -154,6 +159,97 @@ Be strict in your assessment. Only confirm if there's clear evidence of vulnerab
         except Exception as e:
             logger.error(f"GPT-4 validation failed: {str(e)}")
             return False, 'UNKNOWN', f"Validation failed: {str(e)}"
+    
+    @traceable(name="validate_cve_match", run_type="llm")
+    def validate_cve_match(
+        self,
+        cve_id: str,
+        cve_description: str,
+        code_snippet: str,
+        file_path: str
+    ) -> dict:
+        """
+        Validate whether a code snippet is vulnerable to a specific CVE.
+        This is used by the agent tool for on-the-fly validation during analysis.
+        
+        Args:
+            cve_id: CVE identifier
+            cve_description: Description of the vulnerability
+            code_snippet: Code to analyze
+            file_path: Path to the file
+            
+        Returns:
+            dict with keys: is_vulnerable, confidence, severity, reasoning
+        """
+        try:
+            prompt = f"""You are a security expert analyzing code for vulnerabilities.
+
+CVE Information:
+- ID: {cve_id}
+- Description: {cve_description}
+
+Code to analyze (from {file_path}):
+```
+{code_snippet}
+```
+
+Analyze if this code is vulnerable to the CVE described above.
+
+Respond in this format:
+VULNERABLE: yes/no
+CONFIDENCE: 0.0-1.0 (how confident are you?)
+SEVERITY: CRITICAL/HIGH/MEDIUM/LOW (if vulnerable)
+REASONING: Brief explanation of your analysis
+"""
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1,
+                max_tokens=500
+            )
+            
+            content = response.choices[0].message.content.strip()
+            
+            # Parse response
+            is_vulnerable = 'yes' in content.split('\n')[0].lower()
+            
+            confidence = 0.5
+            for line in content.split('\n'):
+                if line.startswith('CONFIDENCE:'):
+                    try:
+                        confidence = float(line.split(':')[1].strip())
+                    except:
+                        pass
+                    break
+            
+            severity = 'MEDIUM'
+            for line in content.split('\n'):
+                if line.startswith('SEVERITY:'):
+                    sev_text = line.split(':')[1].strip()
+                    if sev_text in ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']:
+                        severity = sev_text
+                    break
+            
+            reasoning = ''
+            if 'REASONING:' in content:
+                reasoning = content.split('REASONING:')[1].strip()
+            
+            return {
+                'is_vulnerable': is_vulnerable,
+                'confidence': confidence,
+                'severity': severity if is_vulnerable else None,
+                'reasoning': reasoning
+            }
+            
+        except Exception as e:
+            logger.error(f"GPT-4 validation failed for {cve_id}: {str(e)}")
+            return {
+                'is_vulnerable': False,
+                'confidence': 0.0,
+                'severity': None,
+                'reasoning': f"Validation failed: {str(e)}"
+            }
     
     @traceable(name="validate_single_by_id", run_type="tool")
     def validate_finding_by_id(self, finding_id: int) -> bool:

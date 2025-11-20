@@ -45,15 +45,16 @@ def create_app(config_name='development'):
         app,
         cors_allowed_origins=app.config['SOCKETIO_CORS_ALLOWED_ORIGINS'],
         async_mode=app.config['SOCKETIO_ASYNC_MODE'],
-        logger=True,
-        engineio_logger=True,
+        logger=app.config.get('SOCKETIO_ENABLE_LOGS', False),
+        engineio_logger=app.config.get('SOCKETIO_ENABLE_LOGS', False),
         ping_timeout=120,  # Increase timeout to 120 seconds
         ping_interval=25,  # Send ping every 25 seconds
         max_http_buffer_size=1e8  # Increase buffer size for large messages
     )
     
-    # Register blueprints
+    # Register blueprints and SocketIO namespaces on every app factory call
     from app.routes import api_bp, auth_bp, repo_bp, notification_bp, chat_bp, dashboard_bp, report_bp, socketio_events
+    socketio_events.register_analysis_namespace()
     app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(repo_bp, url_prefix='/api/repositories')

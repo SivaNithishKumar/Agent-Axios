@@ -17,7 +17,7 @@ class Database:
         """Initialize database with Flask app."""
         engine = create_engine(
             app.config['SQLALCHEMY_DATABASE_URI'],
-            echo=app.config['DEBUG']
+            echo=app.config.get('SQLALCHEMY_ECHO', False)
         )
         self.session = scoped_session(
             sessionmaker(autocommit=False, autoflush=False, bind=engine)

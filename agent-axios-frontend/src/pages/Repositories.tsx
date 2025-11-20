@@ -3,6 +3,7 @@ import { Plus, Search, Star, GitFork, Clock, AlertCircle, CheckCircle, Play, Tra
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Card,
   CardContent,
@@ -101,9 +102,9 @@ export default function Repositories() {
 
     try {
       await addNewRepository({
+        name: newRepoData.name,
         url: newRepoData.url,
-        autoScan: newRepoData.autoScan,
-        scanFrequency: newRepoData.scanFrequency,
+        description: newRepoData.description,
       });
       toast.success("Repository added successfully");
       setIsAddDialogOpen(false);
@@ -342,14 +343,28 @@ export default function Repositories() {
       {isLoading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Card key={i} className="animate-pulse">
-              <CardHeader className="space-y-2">
-                <div className="h-6 bg-muted rounded w-3/4" />
-                <div className="h-4 bg-muted rounded w-full" />
+            <Card key={i}>
+              <CardHeader className="space-y-3">
+                <div className="flex items-start justify-between">
+                  <Skeleton className="h-6 w-3/4" />
+                  <Skeleton className="h-6 w-6 rounded-full" />
+                </div>
+                <Skeleton className="h-4 w-full" />
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="h-4 bg-muted rounded w-1/2" />
-                <div className="h-4 bg-muted rounded w-2/3" />
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-6 w-16" />
+                  <Skeleton className="h-6 w-16" />
+                </div>
+                <div className="flex gap-2">
+                  <Skeleton className="h-9 flex-1" />
+                  <Skeleton className="h-9 w-9" />
+                  <Skeleton className="h-9 w-9" />
+                </div>
               </CardContent>
             </Card>
           ))}
